@@ -1,0 +1,67 @@
+id: api-key-frontend
+title: Wetter-API-Key im Frontend
+version: 1
+decoy: false
+
+scenario:
+  requirement: >
+    Kursauftrag: Baue eine Seite, die das aktuelle Wetter in Bern anzeigt.
+    Rufe die Wetter-API (OpenWeatherMap) direkt aus der Seite mit fetch() auf.
+  ai_chat: |
+    TODO: Auszug aus dem echten Testchat einfügen.
+    (Sinngemäss: Die KI liefert das Skript mit dem Key direkt im Code und
+    erklärt nur, wo man den eigenen Key einsetzt.)
+  # Der Key ist erfunden. Mit einem echten Key läuft der Code so im Browser.
+  code: |
+    <p id="wetter">Lade Wetter …</p>
+    <script>
+      const API_KEY = "8f3c2a7e5b1d4c9fa0e6b2d9c7a1f4e3";
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=Bern&units=metric&lang=de&appid=${API_KEY}`;
+
+      fetch(url)
+        .then((res) => res.json())
+        .then((data) => {
+          document.getElementById("wetter").textContent =
+            `${data.name}: ${Math.round(data.main.temp)} °C, ${data.weather[0].description}`;
+        })
+        .catch(() => {
+          document.getElementById("wetter").textContent = "Wetter nicht verfügbar";
+        });
+    </script>
+
+answer_key:
+  issue: Der API-Key wird mit der Seite an jeden Browser ausgeliefert.
+  consequence: >
+    Jede Besucherin und jeder Besucher kann den Key aus Quelltext oder
+    Netzwerk-Tab kopieren und die API auf Kosten bzw. im Kontingent des
+    Kontoinhabers nutzen.
+  accepted:
+    - "der Key ist im Browser sichtbar"
+    - "jeder kann den Key aus dem Quelltext kopieren"
+    - "in den Devtools / im Netzwerk-Tab sieht man den Key"
+    - "andere können die API mit unserem Key nutzen, auf unsere Kosten"
+
+stages:
+  1:
+    goal: Offene Frage, wer den ausgelieferten Code sehen kann
+    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Wer ausser dir kann alles sehen, was diese Seite an den Browser schickt?"
+    forbidden: ["API-Key", "API key", "Key", "Schlüssel", "secret", "geheim", "Token", "appid", "leak", "Zugangsdaten"]
+  2:
+    goal: Auf die Anfrage an den Wetterdienst eingrenzen
+    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Öffne die Entwicklertools im Tab «Netzwerk» und lade die Seite neu. Was steht alles in der Anfrage an den Wetterdienst?"
+    forbidden: ["API-Key", "API key", "Key", "Schlüssel", "secret", "appid"]
+  3:
+    goal: Konkretes Missbrauchsszenario
+    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Angenommen, jemand kopiert alles, was in dieser Anfrage steht. Was kann die Person damit tun, und wer bezahlt dafür?"
+    forbidden: []
+
+close:
+  fix: >
+    Den Aufruf in eine Server-Route verschieben (z. B. eine Serverless-Funktion
+    /api/wetter) und den Key dort aus einer Umgebungsvariable lesen. Die Seite
+    ruft nur noch die eigene Route auf. Den bereits veröffentlichten Key beim
+    Anbieter ersetzen und ein Kontingent setzen.
+  pruefmuster: "Vor dem Veröffentlichen: Was in diesem Code landet im Browser, und dürfen das alle sehen?"

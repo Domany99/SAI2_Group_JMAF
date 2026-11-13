@@ -1,0 +1,73 @@
+id: strapi-public-create
+title: Strapi-Gästebuch mit create für Public
+version: 1
+decoy: false
+
+scenario:
+  requirement: >
+    Kursauftrag: Ergänze die Seite um ein Gästebuch. Neue Einträge werden über
+    die REST-API in Strapi gespeichert.
+  ai_chat: |
+    TODO: Auszug aus dem echten Testchat einfügen.
+    (Sinngemäss: Strapi antwortet mit 403 Forbidden. Die KI empfiehlt:
+    Settings → Users & Permissions → Roles → Public → Eintrag → "create"
+    aktivieren und speichern. Ein Hinweis auf Missbrauch fehlt.)
+  code: |
+    const form = document.querySelector("#gaestebuch");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const res = await fetch("http://localhost:1337/api/eintraege", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: {
+            autor: form.elements.autor.value,
+            nachricht: form.elements.nachricht.value,
+          },
+        }),
+      });
+      if (!res.ok) {
+        alert(`Fehler ${res.status}`);
+        return;
+      }
+      form.reset();
+    });
+
+answer_key:
+  issue: >
+    Mit create für die Rolle Public darf jede Person ohne Anmeldung Einträge
+    anlegen, nicht nur über das Formular, sondern mit jedem beliebigen Request.
+  consequence: >
+    Bots und Angreifende können die Datenbank mit Spam oder schädlichen
+    Inhalten füllen, ohne Limit, Prüfung oder Freigabe.
+  accepted:
+    - "jeder kann ohne Login Einträge erstellen"
+    - "man kann die API direkt aufrufen, am Formular vorbei"
+    - "Bots können massenhaft Spam eintragen"
+    - "es gibt keine Prüfung oder kein Limit für neue Einträge"
+
+stages:
+  1:
+    goal: Offene Frage, wer nach der Änderung schreiben darf
+    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Der Fehler 403 ist weg. Wer kann jetzt alles neue Einträge an deinen Strapi-Server schicken?"
+    forbidden: ["Public", "öffentlich", "create", "Berechtigung", "Permission", "Rolle", "Spam", "Missbrauch", "anonym", "Bot"]
+  2:
+    goal: Auf den Request ausserhalb des Formulars eingrenzen
+    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Schick denselben POST-Request einmal nicht über das Formular, sondern direkt aus der Browser-Konsole oder mit curl. Was antwortet Strapi?"
+    forbidden: ["Public", "öffentlich", "create", "Spam", "Missbrauch", "Bot"]
+  3:
+    goal: Konkretes Missbrauchsszenario
+    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Was passiert mit deiner Datenbank und deiner Seite, wenn jemand diesen Request per Skript 10'000-mal pro Minute abschickt, mit beliebigem Inhalt?"
+    forbidden: []
+
+close:
+  fix: >
+    create für Public wieder deaktivieren. Neue Einträge über eine eigene Route
+    oder einen eigenen Controller annehmen, der die Eingaben prüft und ein
+    Rate-Limit (oder Captcha) hat. Einträge erst nach Freigabe anzeigen
+    (z. B. mit Draft & Publish).
+  pruefmuster: "Bevor du eine Berechtigung freigibst: Wer genau darf das danach, und was passiert, wenn es jemand tausendfach oder in böser Absicht tut?"

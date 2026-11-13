@@ -1,0 +1,13 @@
+# Laufzeit- und Evaluationsdaten (Datenschutz, siehe development.md)
+logs/*
+!logs/.gitkeep
+eval/data/
+
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
