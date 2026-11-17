@@ -27,8 +27,9 @@ streamlit run app/main.py
 ```
 
 Die App öffnet sich im Browser (standardmässig http://localhost:8501).
-Ablauf: Übung wählen, Szenario lesen (Kursauftrag, KI-Chat, Code), die Fragen
-der Stufen 1 bis 3 beantworten, Abschluss mit Fix und Prüfmuster.
+Ablauf: Vorwissen einstufen (Pflicht vor der ersten Übung), Übung wählen,
+Szenario lesen (Kursauftrag, KI-Chat, Code), die Fragen der Stufen 1 bis 3
+beantworten, Abschluss mit Fix und Prüfmuster.
 
 In Schritt 2 gibt es noch kein LLM:
 
@@ -41,6 +42,10 @@ In Schritt 2 gibt es noch kein LLM:
 
 Neue oder geänderte Dateien in `exercises/` erscheinen nach einem Neustart der
 App automatisch.
+
+Das Aussehen folgt dem Low-Fi-Prototyp „Mind the Gap“ (Navy, Gelb,
+Warnstreifen). Das Theme steht in `.streamlit/config.toml`, die übrigen
+Styles als CSS oben in `app/main.py`.
 
 ## Tests
 
@@ -128,6 +133,11 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Testleitung statt Grader:** In Schritt 2 bewertet eine Person die
   Antworten in der UI. Die Knöpfe nutzen dieselben drei Urteile wie LLM 2,
   damit die Testläufe mit den späteren Grader-Läufen vergleichbar sind.
+- **Einstufung:** Vor der ersten Übung schätzen Studierende ihr Vorwissen
+  selbst ein (`core/prior_knowledge.py`: neu, Grundlagen, erfahren). Ohne
+  Einstufung startet keine Übung. In Schritt 2 wird die Stufe nur angezeigt
+  und pro Antwort mitgeführt. Ab Schritt 3 geht sie in den Tutor-Kontext und
+  in die Logs (Segmentvergleich, H11).
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.
