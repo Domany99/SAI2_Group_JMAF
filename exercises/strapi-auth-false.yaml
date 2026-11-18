@@ -1,0 +1,86 @@
+id: strapi-auth-false
+title: Strapi-Kommentare mit auth false für alle Aktionen
+version: 1
+decoy: false
+
+scenario:
+  requirement: >
+    Lea baut im WSEG mit ihrer Gruppe eine Projektplattform mit Vue und Strapi.
+    Unter jedem Projekt sollen Besucherinnen und Besucher Kommentare schreiben
+    können, auch ohne Login. Beim Absenden erscheint aber "Fehler: 403". Lea
+    gibt Copilot im Agent-Modus den Auftrag "beim erstellen eines kommentars
+    kommt ein 403 von strapi. fix das". Danach funktioniert das Formular. Im
+    Strapi-Admin ist unter Roles, Public bei Comment weiterhin nichts
+    angehakt. Lea will die Änderung heute ins Gruppen-Repo pushen.
+  # Echter Lauf: GitHub Copilot, Agent-Modus, MAI-Code-1.1 Flash, 13.11.2026 (gekürzt)
+  ai_chat: |
+    Ich habe das Problem behoben: Der Kommentar-Endpunkt war standardmässig
+    durch Strapi geschützt und hat POST-Requests mit 403 verweigert.
+    Zusätzlich war CORS für den Vite-Frontend-Server nicht erlaubt.
+    Geändert: backend/src/api/comment/routes/comment.js,
+    create/find/findOne/update/delete auf auth: false gesetzt.
+    backend/config/middlewares.js, CORS für http://localhost:5173 und
+    http://127.0.0.1:5173 erlaubt.
+  # Wörtlich aus dem Lauf, nur die Route. Die CORS-Änderung ist nicht nötig für die Aufgabe.
+  code: |
+    'use strict';
+
+    /**
+     * comment router
+     */
+
+    const { createCoreRouter } = require('@strapi/strapi').factories;
+
+    module.exports = createCoreRouter('api::comment.comment', {
+      config: {
+        find: { auth: false },
+        findOne: { auth: false },
+        create: { auth: false },
+        update: { auth: false },
+        delete: { auth: false },
+      },
+    });
+
+answer_key:
+  issue: >
+    Für das Erstellen eines Kommentars hätte create gereicht. Die KI hat mit
+    auth false aber alle fünf Aktionen geöffnet, auch update und delete. Weil
+    auth false die Prüfung in der Route abschaltet, werden die Rollen gar nicht
+    mehr gefragt, und das Admin-Panel zeigt keine Freigabe an.
+  consequence: >
+    Jede Person kann ohne Anmeldung fremde Kommentare umschreiben oder löschen,
+    zum Beispiel per Skript über die documentId aus der öffentlichen Liste. Im
+    Admin-Panel ist davon nichts zu sehen.
+  accepted:
+    - "ohne Login kann jeder Kommentare ändern oder löschen"
+    - "update und delete sind für alle offen, nicht nur create"
+    - "auth false schaltet die Rechteprüfung ab, deshalb sieht man im Admin nichts"
+    - "Fremde können Kommentare von anderen umschreiben oder alle löschen"
+    - "über find bekommt man alle IDs und kann damit jeden Kommentar löschen"
+
+stages:
+  1:
+    goal: Auf die freigegebenen Aktionen lenken, ohne zu sagen, welche zu viel sind
+    # TODO Expert:in: Vorschlag aus Aufgabe 2. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Lea wollte, dass Besucher Kommentare schreiben können. Schau in die Route: Welche Aktionen hat die KI dafür freigegeben, und welche davon braucht das Formular wirklich?"
+    forbidden: ["auth", "update", "delete", "PUT", "löschen", "ändern", "umschreiben", "Berechtigung", "Rolle", "Login", "Anmeldung", "fremde", "Admin"]
+  2:
+    goal: Jede Aktion einer HTTP-Methode und einer Personengruppe zuordnen
+    # TODO Expert:in: Vorschlag aus Aufgabe 2. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Geh die fünf Zeilen einzeln durch. Welche Anfrage gehört zu welcher Aktion (GET, POST, PUT, DELETE), und wer darf sie jetzt schicken: nur Lea, alle Eingeloggten oder alle?"
+    forbidden: ["auth", "löschen", "ändern", "umschreiben", "fremde Kommentare", "Admin", "Berechtigung", "Rolle"]
+  3:
+    goal: Übertragung über eine Analogie, die Person verbindet sie selbst mit dem Code
+    # TODO Expert:in: Vorschlag aus Aufgabe 2. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Damit Besucher Post einwerfen können, entfernt jemand das Schloss an der Haustür. Die Post kommt jetzt an. Was ist sonst noch möglich, und würde man es von aussen am Haus sehen?"
+    forbidden: []
+
+close:
+  fix: >
+    auth false entfernen und nur die nötigen Routen anlegen:
+    createCoreRouter('api::comment.comment', { only: ['find', 'findOne', 'create'] }).
+    Im Admin unter Roles, Public bei Comment nur create, find und findOne
+    freigeben, sichtbar und widerrufbar. Gegen Spam die Textlänge im Schema
+    begrenzen (maxLength) und Anfragen per Middleware begrenzen. Getestet am
+    17.11.2026: PUT und DELETE ohne Login ergeben 405 statt 200.
+  pruefmuster: "Wer darf was, und wo wird es geprüft? Für jede Aktion: alle, Eingeloggte oder nur die Besitzerin? Und steht die Regel dort, wo man sie sieht, in der Rolle im Admin, oder versteckt im Code?"
