@@ -20,8 +20,11 @@ TS = datetime(2026, 11, 20, 10, 14, 3, tzinfo=CET)
 # Reihenfolge und Namen wie im Abschnitt "Logging" der Spezifikation, plus prior_knowledge.
 EXPECTED_KEYS = [
     "session", "exercise", "stage", "role", "prompt_version", "model", "temperature",
-    "text", "guard_hit", "verdict", "ts", "prior_knowledge", "error",
+    "text", "guard_hit", "verdict", "ts",
+    # Ergänzungen (Entscheide im README)
+    "prior_knowledge", "hook", "prompt_hash", "n_examples", "cache_hit", "error",
 ]  # fmt: skip
+HASH = "a" * 64
 
 
 def tutor_turn(**overrides: Any) -> Turn:
@@ -36,6 +39,10 @@ def tutor_turn(**overrides: Any) -> Turn:
         "text": "Wer kann diese Zeile im Browser sehen?",
         "ts": TS,
         "prior_knowledge": PriorKnowledge.BASICS,
+        "hook": "none",
+        "prompt_hash": HASH,
+        "n_examples": 2,
+        "cache_hit": False,
     }
     data.update(overrides)
     return Turn(**data)
@@ -47,6 +54,9 @@ def student_turn(**overrides: Any) -> Turn:
         "prompt_version": None,
         "model": None,
         "temperature": None,
+        "prompt_hash": None,
+        "n_examples": None,
+        "cache_hit": None,
         "text": "Alle, die die Seite öffnen.",
     }
     data.update(overrides)
@@ -59,6 +69,7 @@ def grader_turn(**overrides: Any) -> Turn:
         "prompt_version": "grader_v1",
         "model": "gpt-oss:120b",
         "temperature": 0.0,
+        "n_examples": None,
         "text": "Alle, die die Seite öffnen.",
         "verdict": Verdict.PARTIAL,
     }
@@ -89,6 +100,10 @@ def test_line_has_spec_fields_in_order(tmp_path: Path) -> None:
         "verdict": None,
         "ts": "2026-11-20T10:14:03+01:00",
         "prior_knowledge": "basics",
+        "hook": "none",
+        "prompt_hash": HASH,
+        "n_examples": 2,
+        "cache_hit": False,
         "error": None,
     }
 
@@ -198,6 +213,28 @@ def test_now_is_timezone_aware_iso_without_microseconds() -> None:
     assert tutor_turn(ts=ts).ts == ts
 
 
+def test_now_uses_swiss_time_regardless_of_server_zone(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Streamlit Cloud läuft in UTC. Um 23:30 UTC im Winter ist es in der Schweiz schon der nächste Tag.
+    fixed_utc = datetime(2026, 11, 20, 23, 30, 15, 123456, tzinfo=timezone.utc)
+
+    class FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> datetime:  # type: ignore[override]
+            return fixed_utc.astimezone(tz) if tz else fixed_utc.replace(tzinfo=None)
+
+    monkeypatch.setattr(turn_log, "datetime", FakeDatetime)
+    ts = turn_log.now()
+    assert ts.isoformat() == "2026-11-21T00:30:15+01:00"
+    assert turn_log.log_path(ts).name == "2026-11-21.jsonl"
+
+
+def test_timezone_is_zurich_with_summer_time() -> None:
+    summer = datetime(2027, 7, 1, 12, 0, tzinfo=turn_log.TIMEZONE)
+    winter = datetime(2026, 12, 1, 12, 0, tzinfo=turn_log.TIMEZONE)
+    assert summer.utcoffset() == timedelta(hours=2)
+    assert winter.utcoffset() == timedelta(hours=1)
+
+
 # --- Turn-Regeln ------------------------------------------------------------
 
 
@@ -239,7 +276,7 @@ def test_negative_temperature_is_rejected() -> None:
         tutor_turn(temperature=-0.1)
 
 
-@pytest.mark.parametrize("field", ["prompt_version", "model", "temperature"])
+@pytest.mark.parametrize("field", ["prompt_version", "model", "temperature", "prompt_hash", "cache_hit"])
 @pytest.mark.parametrize("factory", [tutor_turn, grader_turn])
 def test_llm_turn_needs_llm_fields(factory: Any, field: str) -> None:
     with pytest.raises(ValidationError, match=f"{field}: Pflicht"):
@@ -264,8 +301,10 @@ def test_valid_prompt_versions(version: str) -> None:
 
 @pytest.mark.parametrize("role", ["student", "hint"])
 @pytest.mark.parametrize(
-    ("field", "value"), [("prompt_version", "tutor_v1"), ("model", "qwen3.8-27b"), ("temperature", 0.2)]
-)
+    ("field", "value"),
+    [("prompt_version", "tutor_v1"), ("model", "qwen3.8-27b"), ("temperature", 0.2), ("prompt_hash", "b" * 64),
+     ("cache_hit", False)],
+)  # fmt: skip
 def test_non_llm_turn_has_no_llm_fields(role: str, field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match=f"{field}: nur bei tutor und grader erlaubt"):
         student_turn(role=role, **{field: value})
@@ -297,27 +336,84 @@ def test_guard_hit_on_hint_is_rejected() -> None:
         student_turn(role="hint", guard_hit=True)
 
 
-def test_grader_error_with_partial_is_valid(tmp_path: Path) -> None:
-    turn = grader_turn(verdict="partial", text="{kein json", error="ungültiges JSON")
+GRADER_ERRORS = ["empty_output", "invalid_json", "not_an_object", "schema_violation", "quote_not_found"]
+
+
+@pytest.mark.parametrize("code", GRADER_ERRORS)
+def test_grader_error_codes_with_partial_are_valid(tmp_path: Path, code: str) -> None:
+    turn = grader_turn(verdict="partial", text="", error=code)
     path = turn_log.write_turn(turn, tmp_path)
-    assert json.loads(path.read_text(encoding="utf-8"))["error"] == "ungültiges JSON"
+    assert json.loads(path.read_text(encoding="utf-8"))["error"] == code
+
+
+@pytest.mark.parametrize("code", ["ungültiges JSON", "  ", "INVALID_JSON", "timeout"])
+def test_unknown_error_code_is_rejected(code: str) -> None:
+    with pytest.raises(ValidationError, match="error"):
+        grader_turn(verdict="partial", error=code)
 
 
 @pytest.mark.parametrize("verdict", ["recognized", "not"])
 def test_grader_error_requires_partial(verdict: str) -> None:
     with pytest.raises(ValidationError, match="error: bei einem Fehler ist das Urteil immer partial"):
-        grader_turn(verdict=verdict, error="ungültiges JSON")
+        grader_turn(verdict=verdict, error="invalid_json")
 
 
 @pytest.mark.parametrize("factory", [tutor_turn, student_turn])
 def test_error_only_on_grader(factory: Any) -> None:
     with pytest.raises(ValidationError, match="error: nur bei role=grader"):
-        factory(error="irgendwas")
+        factory(error="invalid_json")
 
 
-def test_blank_error_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="error: darf nicht leer sein"):
-        grader_turn(error="  ")
+# --- hook, prompt_hash, n_examples, cache_hit -------------------------------
+
+
+@pytest.mark.parametrize("factory", [tutor_turn, student_turn, grader_turn])
+@pytest.mark.parametrize("hook", ["incident", "none"])
+def test_hook_is_logged_for_every_role(tmp_path: Path, factory: Any, hook: str) -> None:
+    path = turn_log.write_turn(factory(hook=hook), tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["hook"] == hook
+
+
+def test_hook_is_required() -> None:
+    with pytest.raises(ValidationError, match="hook"):
+        tutor_turn(hook=None)
+
+
+@pytest.mark.parametrize("hook", ["Incident", "ja", ""])
+def test_unknown_hook_is_rejected(hook: str) -> None:
+    with pytest.raises(ValidationError, match="hook"):
+        tutor_turn(hook=hook)
+
+
+@pytest.mark.parametrize("value", ["a" * 63, "A" * 64, "g" * 64, "a" * 65, "sha256:" + "a" * 57])
+def test_prompt_hash_must_be_sha256_hex(value: str) -> None:
+    with pytest.raises(ValidationError, match="prompt_hash"):
+        tutor_turn(prompt_hash=value)
+
+
+def test_cache_hit_true_is_logged(tmp_path: Path) -> None:
+    path = turn_log.write_turn(grader_turn(cache_hit=True), tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["cache_hit"] is True
+
+
+def test_tutor_needs_n_examples() -> None:
+    with pytest.raises(ValidationError, match="n_examples: Pflicht bei role=tutor"):
+        tutor_turn(n_examples=None)
+
+
+def test_zero_examples_is_valid() -> None:
+    assert tutor_turn(n_examples=0).n_examples == 0
+
+
+def test_negative_examples_rejected() -> None:
+    with pytest.raises(ValidationError, match="n_examples"):
+        tutor_turn(n_examples=-1)
+
+
+@pytest.mark.parametrize("factory", [student_turn, grader_turn])
+def test_n_examples_only_on_tutor(factory: Any) -> None:
+    with pytest.raises(ValidationError, match="n_examples: nur bei role=tutor"):
+        factory(n_examples=2)
 
 
 def test_turn_is_immutable() -> None:

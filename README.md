@@ -166,8 +166,12 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   `s-7f3a91c2`) statt 4 wie im Beispiel der Spezifikation. Bei 4 Zeichen liegt
   die Kollisionswahrscheinlichkeit ab etwa 50 Sessions bei rund 2 %.
 - **Zeitstempel:** ISO 8601 mit Zeitzone, auf Sekunden gerundet wie im
-  Beispiel. Naive Zeitstempel lehnt `Turn` ab. `now()` nimmt die lokale
-  Zone des Servers (auf Streamlit Community Cloud also UTC).
+  Beispiel. Naive Zeitstempel lehnt `Turn` ab. `now()` nimmt fest
+  `Europe/Zurich` (seit I-18), nicht die Zone des Servers: Streamlit
+  Community Cloud läuft in UTC, sonst lägen Zeitstempel und Tagesgrenze der
+  Logdateien daneben. Dafür ist `tzdata` gepinnt (Windows hat keine
+  Zeitzonen-Daten); gepinnt ist die getestete Version 2025.2, die über
+  Streamlit/pandas ohnehin installiert ist.
 - **Logdatei pro Tag:** Das Datum im Namen `logs/<YYYY-MM-DD>.jsonl` ist das
   Datum von `ts` in dessen eigener Zone. Schreiben ist mit einem Lock
   geschützt, weil Streamlit mehrere Sessions in Threads eines Prozesses
@@ -220,15 +224,18 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   heisst deshalb `GraderOutput`, sein Feld `verdict` nutzt das Enum (gleiche
   Werte wie das Literal im Issue). Zusätzliche Schlüssel in der Ausgabe
   werden ignoriert.
-- **Grader-Fehler im Log:** Neues optionales Feld `Turn.error`, nur bei
-  `role=grader` und nur zusammen mit `verdict=partial`. Ungültiges JSON,
-  leere Ausgabe oder ein verletztes Schema ergeben `partial` mit `error`.
-  Die Fehlermeldung enthält keine Teile der Modellausgabe, der Rohtext steht
-  separat in `GraderResult.raw_text`.
+- **Grader-Fehler im Log:** Optionales Feld `Turn.error`, nur bei
+  `role=grader` und nur zusammen mit `verdict=partial`. Seit I-18 ein fester
+  Code statt freiem Text, damit die Evaluation zählen und gruppieren kann:
+  `empty_output`, `invalid_json`, `not_an_object`, `schema_violation` (Fallback
+  `partial`) und `quote_not_found` (Herabstufung, siehe unten). Die
+  Einzelheiten stehen in `GraderResult.warnings`, nie mit Teilen der
+  Modellausgabe; der Rohtext steht separat in `GraderResult.raw_text`.
 - **Zitat-Prüfung:** Ein `recognized`, dessen `evidence` nicht in der
-  Antwort steht, wird zu `partial` herabgestuft (Warnung, kein `error`).
-  Verglichen wird normalisiert wie im Leak Guard, Auslassungen (`...`, `…`)
-  trennen das Zitat in Teile. `partial` und `not` werden nicht geprüft.
+  Antwort steht, wird zu `partial` herabgestuft, mit `error="quote_not_found"`
+  (im Log erkennbar). Zitat und Fehlannahme bleiben erhalten. Verglichen wird
+  normalisiert wie im Leak Guard, Auslassungen (`...`, `…`) trennen das Zitat
+  in Teile. `partial` und `not` werden nicht geprüft.
 - **Fehlannahmen-ids:** Gibt der Grader eine id zurück, die es in der Übung
   nicht gibt, wird sie verworfen (Warnung), das Urteil bleibt.
 - **Code-Fences:** JSON in ```` ```json ```` wird akzeptiert, weil der
@@ -237,7 +244,46 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Modellantwort gibt es kein Urteil, auch kein Fallback-`partial`. Was die UI
   dann zeigt, entscheidet I-10.
 - **Grader-Config:** `GRADER_TEMPERATURE` (Default 0.0) und
-  `GRADER_PROMPT_VERSION` (Default 1), pro Aufruf überschreibbar.
+  `GRADER_PROMPT_VERSION` (Default 2 seit I-18), pro Aufruf überschreibbar.
+- **`grader_v2`:** v1 plus die Regel «Ein Fix ohne Begründung des Problems
+  ist partial» und ein Beispiel dazu, sonst unverändert, damit ein
+  Unterschied zwischen v1 und v2 in der Evaluation genau dieser Regel
+  zuzuordnen ist. Anlass: Im Probelauf wurde «textContent statt innerHTML»
+  `recognized` (`docs/probelaeufe.md`). Default ist v2, schon vor dem ersten
+  Eval-Lauf. Weitere Beobachtungen stehen in `prompts/v2_candidates.md` und
+  kommen erst nach der Evaluation in eine neue Version.
+- **Proxy-Cache:** Der BFH-Proxy (LiteLLM) liefert identische Anfragen aus
+  seinem Cache, auch bei Temperatur > 0. `core/llm.py` schickt deshalb
+  `extra_body={"cache": {"no-cache": True}}` mit (`LLM_NO_CACHE`, Default
+  `true`) und setzt `cache_hit`, wenn der Proxy den Header
+  `x-litellm-cache-key` mitschickt. Am 20.11.2026 geprüft: Der Proxy
+  erlaubt `no-cache` für unseren Key, eine Anfrage bei der BFH ist nicht
+  nötig. Mit `no-cache` wird nicht aus dem Cache gelesen, die Antwort aber
+  trotzdem gespeichert. Für die Header ruft `core/llm.py` das SDK über
+  `with_raw_response` auf. Probeläufe vor I-18 waren teilweise
+  Cache-Wiederholungen und zählen nicht für die Evaluation.
+- **`cache_hit` im Log:** Pflicht bei `tutor` und `grader` (sonst `null`),
+  steht auch in `TutorQuestion` und `GraderResult`. So lassen sich trotz
+  `no-cache` durchgerutschte Treffer aus der Auswertung filtern.
+- **`prompt_hash`:** SHA-256 des fertig eingesetzten System-Prompts (inkl.
+  Few-Shot-Beispiele und Lösungsschlüssel), Pflicht bei `tutor` und
+  `grader`. Die User-Nachricht mit der Antwort zählt nicht dazu, sonst wäre
+  jeder Hash anders. `prompt_version` allein reicht nicht, weil sich die
+  eingesetzten Beispiele und Schlüssel ändern, wenn Übungen angepasst
+  werden.
+- **`hook` im Log:** Pflicht in jedem Turn, `incident` oder `none`. Geloggt
+  wird der Arm des A/B-Tests (Einstellung `HOOK`), nicht ob die Übung
+  tatsächlich einen Hook hat; das lässt sich aus der Übungsdatei ableiten.
+- **`n_examples`:** Zahl der Few-Shot-Beispiele im Tutor-Prompt, Pflicht bei
+  `tutor`. Bei 0 setzt `tutor.ask()` eine Warnung: Die Stufe läuft dann
+  Zero-Shot und ist nicht mit den anderen vergleichbar.
+- **Reihenfolge im Log:** zuerst die Felder der Spezifikation, danach die
+  Ergänzungen `prior_knowledge`, `hook`, `prompt_hash`, `n_examples`,
+  `cache_hit`, `error`.
+- **Probeskripte:** `scripts/try_prompts.py` (eingesetzte Prompts anzeigen,
+  ohne LLM), `scripts/try_tutor.py` und `scripts/try_grader.py`
+  (Plausibilitätschecks gegen den Proxy). Sie lesen die Config aus `.env`
+  und sind nicht Teil von pytest. Ergebnisse in `docs/probelaeufe.md`.
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.

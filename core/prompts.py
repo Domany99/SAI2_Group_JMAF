@@ -104,13 +104,21 @@ def available_versions(role: str, prompts_dir: Path = PROMPTS_DIR) -> list[int]:
     return sorted(int(m.group(1)) for m in numbers if m)
 
 
-def prompt_hash(path: Path) -> str:
-    """SHA-256 des Inhalts mit vereinheitlichten Zeilenenden.
+def hash_text(text: str) -> str:
+    """SHA-256 (hex) eines Textes, Zeilenenden vereinheitlicht.
 
-    `read_text` macht aus CRLF ein LF, so ergibt dieselbe Datei unter Windows
-    (git autocrlf) und Linux denselben Hash.
+    Für `Turn.prompt_hash`: den fertig eingesetzten System-Prompt hashen.
     """
-    return hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def prompt_hash(path: Path) -> str:
+    """SHA-256 einer Vorlagen-Datei mit vereinheitlichten Zeilenenden.
+
+    So ergibt dieselbe Datei unter Windows (git autocrlf) und Linux denselben Hash.
+    """
+    return hash_text(path.read_text(encoding="utf-8"))
 
 
 def read_frozen(frozen_file: Path = FROZEN_FILE) -> dict[str, str]:

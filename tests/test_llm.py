@@ -17,7 +17,7 @@ FAKE_KEY = "sk-test-SUPERGEHEIM-1234567890"
 REQUEST = httpx2.Request("POST", "https://proxy.test/v1/chat/completions")
 ENV_VARS = [
     "LLM_BASE_URL", "LLM_API_KEY", "TUTOR_MODEL", "GRADER_MODEL", "LLM_TIMEOUT_S", "LLM_MAX_RETRIES",
-    "TUTOR_TEMPERATURE", "TUTOR_PROMPT_VERSION", "GRADER_TEMPERATURE", "GRADER_PROMPT_VERSION",
+    "TUTOR_TEMPERATURE", "TUTOR_PROMPT_VERSION", "GRADER_TEMPERATURE", "GRADER_PROMPT_VERSION", "LLM_NO_CACHE",
 ]  # fmt: skip
 
 
@@ -48,21 +48,37 @@ def _completion(
     )
 
 
+class Cached:
+    """Antwort, die der Proxy aus dem Cache liefert (mit dem Header für Treffer)."""
+
+    def __init__(self, completion: SimpleNamespace) -> None:
+        self.completion = completion
+
+
 class FakeClient:
-    """Gibt der Reihe nach die vorgegebenen Antworten zurück oder wirft sie."""
+    """Gibt der Reihe nach die vorgegebenen Antworten zurück oder wirft sie.
+
+    Bildet `chat.completions.with_raw_response.create` nach: Das Ergebnis hat
+    `headers` und `parse()`. `Cached(...)` liefert den Cache-Header mit.
+    """
 
     def __init__(self, *outcomes: Any) -> None:
         self.outcomes = list(outcomes)
         self.calls: list[dict[str, Any]] = []
-        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+        raw = SimpleNamespace(create=self._create_raw)
+        self.chat = SimpleNamespace(completions=SimpleNamespace(with_raw_response=raw))
         self.models = SimpleNamespace(list=self._list)
 
-    def _create(self, **kwargs: Any) -> Any:
+    def _create_raw(self, **kwargs: Any) -> SimpleNamespace:
         self.calls.append(kwargs)
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, BaseException):
             raise outcome
-        return outcome
+        headers = {"x-litellm-call-id": "abc"}
+        if isinstance(outcome, Cached):
+            headers["X-LiteLLM-Cache-Key"] = "d07f8103"  # Gross-/Kleinschreibung egal
+            outcome = outcome.completion
+        return SimpleNamespace(headers=headers, parse=lambda: outcome)
 
     def _list(self) -> list[SimpleNamespace]:
         return [SimpleNamespace(id="b-model"), SimpleNamespace(id="a-model")]
@@ -279,6 +295,55 @@ def test_no_choices_gives_warning(cfg: LLMConfig) -> None:
     assert any("choices" in w for w in res.warnings)
 
 
+# --- Proxy-Cache ---------------------------------------------------------------
+
+
+def test_no_cache_is_sent_by_default(cfg: LLMConfig) -> None:
+    client = FakeClient(_completion())
+    _chat(client, cfg)
+    assert client.calls[0]["extra_body"] == {"cache": {"no-cache": True}}
+
+
+def test_no_cache_also_in_json_mode_and_fallback(cfg: LLMConfig, sleeps: list[float]) -> None:
+    client = FakeClient(_status_error(400, "response_format not supported"), _completion('{"a": 1}'))
+    _chat(client, cfg, json_mode=True)
+    assert [c["extra_body"] for c in client.calls] == [{"cache": {"no-cache": True}}] * 2
+    assert "response_format" in client.calls[0] and "response_format" not in client.calls[1]
+
+
+def test_no_cache_can_be_switched_off(cfg: LLMConfig) -> None:
+    client = FakeClient(_completion())
+    _chat(client, cfg.model_copy(update={"no_cache": False}))
+    assert "extra_body" not in client.calls[0]
+
+
+def test_cache_hit_from_header(cfg: LLMConfig) -> None:
+    assert _chat(FakeClient(Cached(_completion())), cfg).cache_hit is True
+
+
+def test_no_cache_header_means_no_hit(cfg: LLMConfig) -> None:
+    assert _chat(FakeClient(_completion()), cfg).cache_hit is False
+
+
+def test_cache_hit_after_retry_reflects_last_call(cfg: LLMConfig, sleeps: list[float]) -> None:
+    client = FakeClient(_status_error(503), Cached(_completion()))
+    assert _chat(client, cfg).cache_hit is True
+
+
+def test_config_no_cache_default_and_env(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("LLM_API_KEY", FAKE_KEY)
+    assert load_config(None).no_cache is True
+    clean_env.setenv("LLM_NO_CACHE", "false")
+    assert load_config(None).no_cache is False
+
+
+def test_config_no_cache_invalid(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("LLM_API_KEY", FAKE_KEY)
+    clean_env.setenv("LLM_NO_CACHE", "vielleicht")
+    with pytest.raises(ConfigError, match="LLM_NO_CACHE"):
+        load_config(None)
+
+
 # --- list_models und Client ---------------------------------------------------
 
 
@@ -344,7 +409,7 @@ def test_config_tutor_defaults(clean_env: pytest.MonkeyPatch) -> None:
     assert config.tutor_temperature == 0.7
     assert config.tutor_prompt_version == 1
     assert config.grader_temperature == 0.0
-    assert config.grader_prompt_version == 1
+    assert config.grader_prompt_version == 2
 
 
 def test_config_tutor_values_from_env(clean_env: pytest.MonkeyPatch) -> None:

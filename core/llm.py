@@ -15,7 +15,7 @@ import random
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, TypeVar
 
 import openai
@@ -27,6 +27,12 @@ T = TypeVar("T")
 
 BACKOFF_BASE_S = 1.0
 BACKOFF_CAP_S = 20.0
+
+# LiteLLM-Cache des BFH-Proxys. Mit "no-cache" liest der Proxy nicht aus dem
+# Cache (speichert die Antwort aber trotzdem). Den Header schickt er nur bei
+# einem Cache-Treffer mit. Beides am 20.11.2026 am Proxy geprüft (LiteLLM 1.108.9).
+NO_CACHE_BODY: dict[str, Any] = {"cache": {"no-cache": True}}
+CACHE_HIT_HEADER = "x-litellm-cache-key"
 
 # Austauschbar im Test, damit Retries nicht wirklich warten.
 _sleep: Callable[[float], None] = time.sleep
@@ -45,7 +51,8 @@ class LLMResult:
     `text` enthält nur den sichtbaren Antworttext (`message.content`), nie
     Reasoning. `warnings` ist leer, wenn alles normal war; sonst stehen dort
     z. B. leere oder abgeschnittene Antworten. `latency_ms` misst die gesamte
-    Dauer inklusive Retries und JSON-Fallback.
+    Dauer inklusive Retries und JSON-Fallback. `cache_hit` ist True, wenn der
+    Proxy die Antwort aus seinem Cache geliefert hat.
     """
 
     text: str
@@ -58,6 +65,7 @@ class LLMResult:
     json_mode_fallback: bool
     finish_reason: str | None
     warnings: list[str] = field(default_factory=list)
+    cache_hit: bool = False
 
 
 class LLMError(Exception):
@@ -135,25 +143,34 @@ def chat(
     kwargs: dict[str, Any] = {"model": model, "messages": messages, "temperature": temperature}
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
+    if cfg.no_cache:
+        kwargs["extra_body"] = NO_CACHE_BODY
 
     start = time.perf_counter()
     fallback = False
     if json_mode:
         try:
-            response = _with_retries(
-                lambda: cl.chat.completions.create(**kwargs, response_format={"type": "json_object"}),
-                cfg,
+            response, cache_hit = _with_retries(
+                lambda: _create(cl, {**kwargs, "response_format": {"type": "json_object"}}), cfg
             )
         except LLMRequestError as exc:
             if exc.status_code != 400:
                 raise
             fallback = True
-            response = _with_retries(lambda: cl.chat.completions.create(**kwargs), cfg)
+            response, cache_hit = _with_retries(lambda: _create(cl, kwargs), cfg)
     else:
-        response = _with_retries(lambda: cl.chat.completions.create(**kwargs), cfg)
+        response, cache_hit = _with_retries(lambda: _create(cl, kwargs), cfg)
     latency_ms = round((time.perf_counter() - start) * 1000)
 
-    return _to_result(response, model, temperature, latency_ms, json_mode, fallback)
+    result = _to_result(response, model, temperature, latency_ms, json_mode, fallback)
+    return replace(result, cache_hit=cache_hit)
+
+
+def _create(cl: Any, kwargs: dict[str, Any]) -> tuple[Any, bool]:
+    """Ein Aufruf mit Zugriff auf die Header. Gibt (Antwort, Cache-Treffer) zurück."""
+    raw = cl.chat.completions.with_raw_response.create(**kwargs)
+    cache_hit = any(name.lower() == CACHE_HIT_HEADER for name in raw.headers.keys())
+    return raw.parse(), cache_hit
 
 
 def list_models(*, client: Any = None, config: LLMConfig | None = None) -> list[str]:

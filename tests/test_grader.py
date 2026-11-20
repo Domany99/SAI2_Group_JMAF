@@ -13,7 +13,7 @@ from core import grader
 from core.config import LLMConfig
 from core.llm import LLMResult, LLMUnavailableError
 from core.models import Exercise, Verdict
-from core.prompts import PromptError
+from core.prompts import PromptError, hash_text
 
 ANSWER = "Den Key sieht jeder im Netzwerk-Tab und kann ihn kopieren."
 
@@ -21,9 +21,10 @@ ANSWER = "Den Key sieht jeder im Netzwerk-Tab und kann ihn kopieren."
 class FakeChat:
     """Ersetzt core.llm.chat: merkt sich die Aufrufe und liefert einen festen Text."""
 
-    def __init__(self, text: str, warnings: list[str] | None = None) -> None:
+    def __init__(self, text: str, warnings: list[str] | None = None, cache_hit: bool = False) -> None:
         self.text = text
         self.warnings = warnings or []
+        self.cache_hit = cache_hit
         self.calls: list[dict[str, Any]] = []
 
     def __call__(self, messages: list[dict[str, str]], model: str, temperature: float, **kwargs: Any) -> LLMResult:
@@ -39,6 +40,7 @@ class FakeChat:
             json_mode_fallback=False,
             finish_reason="stop",
             warnings=list(self.warnings),
+            cache_hit=self.cache_hit,
         )
 
     @property
@@ -165,35 +167,47 @@ def test_llm_warnings_are_kept(monkeypatch: pytest.MonkeyPatch, exercise: Exerci
 # --- Ungültige Ausgabe -> partial -------------------------------------------
 
 
-@pytest.mark.parametrize(("text", "error"), [
-    ("", "leere Ausgabe"),
-    ("   ", "leere Ausgabe"),
-    ("```json\n```", "leere Ausgabe"),
-    ("Die Antwort ist recognized.", "ungültiges JSON"),
-    ('{"verdict": "recognized", "evidence": "x"', "ungültiges JSON"),
-    ('["recognized"]', "JSON ist kein Objekt"),
-    ('"recognized"', "JSON ist kein Objekt"),
-    ('{"verdict": "Recognized", "evidence": "x"}', "Schema verletzt: verdict"),
-    ('{"verdict": "yes", "evidence": "x"}', "Schema verletzt: verdict"),
-    ('{"evidence": "x"}', "Schema verletzt: verdict"),
-    ('{"verdict": "recognized"}', "Schema verletzt: evidence"),
-    ('{"verdict": "recognized", "evidence": 42}', "Schema verletzt: evidence"),
-    ('{"verdict": "not", "evidence": "x", "misconception": 7}', "Schema verletzt: misconception"),
+@pytest.mark.parametrize(("text", "code", "detail"), [
+    ("", "empty_output", "leere Ausgabe"),
+    ("   ", "empty_output", "leere Ausgabe"),
+    ("```json\n```", "empty_output", "leere Ausgabe"),
+    ("Die Antwort ist recognized.", "invalid_json", "ungültiges JSON"),
+    ('{"verdict": "recognized", "evidence": "x"', "invalid_json", "ungültiges JSON"),
+    ('["recognized"]', "not_an_object", "JSON ist kein Objekt"),
+    ('"recognized"', "not_an_object", "JSON ist kein Objekt"),
+    ('{"verdict": "Recognized", "evidence": "x"}', "schema_violation", "Schema verletzt: verdict"),
+    ('{"verdict": "yes", "evidence": "x"}', "schema_violation", "Schema verletzt: verdict"),
+    ('{"evidence": "x"}', "schema_violation", "Schema verletzt: verdict"),
+    ('{"verdict": "recognized"}', "schema_violation", "Schema verletzt: evidence"),
+    ('{"verdict": "recognized", "evidence": 42}', "schema_violation", "Schema verletzt: evidence"),
+    ('{"verdict": "not", "evidence": "x", "misconception": 7}', "schema_violation", "Schema verletzt: misconception"),
 ])  # fmt: skip
-def test_invalid_output_gives_partial_with_error(
-    monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig, text: str, error: str
+def test_invalid_output_gives_partial_with_error_code(
+    monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig, text: str, code: str, detail: str
 ) -> None:
     result, _ = run(monkeypatch, exercise, cfg, text)
     assert result.output == grader.FALLBACK
     assert result.verdict is Verdict.PARTIAL
-    assert result.error is not None and result.error.startswith(error)
+    assert result.error == code
+    assert len(result.warnings) == 1 and result.warnings[0].startswith(detail)
     assert result.raw_text == text  # Rohtext bleibt für die Fehlersuche erhalten
 
 
-def test_error_message_has_no_raw_input(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig) -> None:
+def test_error_details_have_no_raw_output(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig) -> None:
     result, _ = run(monkeypatch, exercise, cfg, '{"verdict": "GEHEIMNIS-IM-OUTPUT", "evidence": "x"}')
-    assert result.error is not None
-    assert "GEHEIMNIS-IM-OUTPUT" not in result.error
+    assert result.error == "schema_violation"
+    assert not any("GEHEIMNIS-IM-OUTPUT" in w for w in result.warnings)
+
+
+def test_error_codes_match_turn_model() -> None:
+    # Jeder Code, den der Grader setzen kann, muss im Log erlaubt sein.
+    from typing import get_args
+
+    from core.models import GraderError
+
+    assert set(get_args(GraderError)) == {
+        "empty_output", "invalid_json", "not_an_object", "schema_violation", "quote_not_found",
+    }  # fmt: skip
 
 
 def test_llm_errors_propagate(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig) -> None:
@@ -235,10 +249,13 @@ def test_recognized_with_real_quote_stays(
 def test_recognized_without_real_quote_is_downgraded(
     monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig, evidence: str, reason: str
 ) -> None:
-    result, _ = run(monkeypatch, exercise, cfg, reply(evidence=evidence))
+    result, _ = run(monkeypatch, exercise, cfg, reply(evidence=evidence, misconception="cors-schuetzt"))
     assert result.verdict is Verdict.PARTIAL
-    assert result.error is None  # kein Format-Fehler, nur ein unsicheres Urteil
+    assert result.error == "quote_not_found"  # im Log erkennbar
     assert result.warnings == (f"recognized zu partial herabgestuft: {reason}",)
+    # Anders als beim Fallback bleiben Zitat und Fehlannahme erhalten.
+    assert result.output.evidence == evidence
+    assert result.output.misconception == "cors-schuetzt"
 
 
 def test_umlauts_in_quote_match_normalized(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig) -> None:
@@ -340,3 +357,32 @@ def test_decoy_false_alarm_stays_not(monkeypatch: pytest.MonkeyPatch, decoy: Exe
 def test_decoy_uses_same_evidence_rule(monkeypatch: pytest.MonkeyPatch, decoy: Exercise, cfg: LLMConfig) -> None:
     result, _ = run(monkeypatch, decoy, cfg, reply("recognized", "bcrypt ist sicher"), answer="Sieht sicher aus.")
     assert result.verdict is Verdict.PARTIAL
+    assert result.error == "quote_not_found"
+
+
+# --- prompt_hash und cache_hit (I-18) ---------------------------------------
+
+
+def test_prompt_hash_is_hash_of_system_prompt(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig) -> None:
+    result, fake = run(monkeypatch, exercise, cfg, reply())
+    assert result.prompt_hash == hash_text(fake.system)
+
+
+def test_prompt_hash_independent_of_answer(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig) -> None:
+    first, _ = run(monkeypatch, exercise, cfg, reply("not", "a"), answer="a")
+    second, _ = run(monkeypatch, exercise, cfg, reply("not", "b"), answer="b")
+    assert first.prompt_hash == second.prompt_hash
+
+
+def test_prompt_hash_differs_per_exercise(
+    monkeypatch: pytest.MonkeyPatch, exercise: Exercise, decoy: Exercise, cfg: LLMConfig
+) -> None:
+    a, _ = run(monkeypatch, exercise, cfg, reply("not", "x"))
+    b, _ = run(monkeypatch, decoy, cfg, reply("not", "x"))
+    assert a.prompt_hash != b.prompt_hash
+
+
+@pytest.mark.parametrize("hit", [True, False])
+def test_cache_hit_is_passed_on(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig, hit: bool) -> None:
+    monkeypatch.setattr(grader, "chat", FakeChat(reply(), cache_hit=hit))
+    assert grader.grade(exercise, ANSWER, config=cfg).cache_hit is hit

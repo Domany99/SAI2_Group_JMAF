@@ -14,7 +14,7 @@ from core.guard import find_forbidden
 from core.llm import LLMError, LLMResult, LLMUnavailableError
 from core.models import Exercise
 from core.prior_knowledge import PriorKnowledge
-from core.prompts import PromptError
+from core.prompts import PromptError, hash_text
 from tests.conftest import EXERCISES_DIR
 
 SECRETS = ("GEHEIMES-PROBLEM", "GEHEIME-FOLGE", "Antwort A", "Antwort B", "GEHEIMER-FIX", "GEHEIMES-PRUEFMUSTER")
@@ -23,9 +23,12 @@ SECRETS = ("GEHEIMES-PROBLEM", "GEHEIME-FOLGE", "Antwort A", "Antwort B", "GEHEI
 class FakeChat:
     """Ersetzt core.llm.chat: merkt sich die Aufrufe und liefert einen festen Text."""
 
-    def __init__(self, text: str = "Wer kann das alles sehen?", warnings: list[str] | None = None) -> None:
+    def __init__(
+        self, text: str = "Wer kann das alles sehen?", warnings: list[str] | None = None, cache_hit: bool = False
+    ) -> None:
         self.text = text
         self.warnings = warnings or []
+        self.cache_hit = cache_hit
         self.calls: list[dict[str, Any]] = []
 
     def __call__(self, messages: list[dict[str, str]], model: str, temperature: float, **kwargs: Any) -> LLMResult:
@@ -41,6 +44,7 @@ class FakeChat:
             json_mode_fallback=False,
             finish_reason="stop",
             warnings=list(self.warnings),
+            cache_hit=self.cache_hit,
         )
 
     @property
@@ -314,3 +318,70 @@ def test_no_or_blank_answer_gives_plain_request(
 ) -> None:
     ask(exercises, cfg, stage=2, previous_answer=answer)
     assert fake.user == tutor.ASK_FOR_QUESTION
+
+
+# --- prompt_hash, n_examples, cache_hit (I-18) ------------------------------
+
+
+def test_prompt_hash_is_hash_of_rendered_system_prompt(
+    fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig
+) -> None:
+    q = ask(exercises, cfg)
+    assert q.prompt_hash == hash_text(fake.system)
+
+
+def test_prompt_hash_ignores_previous_answer(fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig) -> None:
+    # Die Antwort steht in der User-Nachricht; gleicher Prompt, gleicher Hash.
+    first = ask(exercises, cfg, stage=2)
+    second = ask(exercises, cfg, stage=2, previous_answer="Irgendeine Antwort")
+    assert first.prompt_hash == second.prompt_hash
+
+
+def test_prompt_hash_changes_when_examples_change(
+    fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig, valid_data: dict[str, Any]
+) -> None:
+    # Gleiche Prompt-Version, aber ein anderer Hint in einer anderen Übung: anderer Prompt.
+    before = ask(exercises, cfg)
+    changed = dict(exercises, **{"andere-a": make(valid_data, "andere-a", s1="Ganz andere Frage?")})
+    after = ask(changed, cfg)
+    assert before.prompt_version == after.prompt_version
+    assert before.prompt_hash != after.prompt_hash
+
+
+def test_prompt_hash_differs_per_level(fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig) -> None:
+    hashes = {ask(exercises, cfg, prior_knowledge=lv).prompt_hash for lv in PriorKnowledge}
+    assert len(hashes) == len(PriorKnowledge)
+
+
+def test_n_examples_counts_inserted_examples(fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig) -> None:
+    assert ask(exercises, cfg).n_examples == 2
+    assert fake.system.count("- «") == 2
+
+
+def test_n_examples_after_forbidden_filter(fake: FakeChat, valid_data: dict[str, Any], cfg: LLMConfig) -> None:
+    current = make(valid_data, "beispiel")
+    other_data = copy.deepcopy(valid_data)
+    other_data["stages"][1]["forbidden"] = ["innerHTML"]
+    leaky = make(other_data, "leaky", s1="Wo steht der API key im Code?")
+    clean = make(valid_data, "clean", s1="Wer kann die Seite öffnen?")
+    pool = {e.id: e for e in (current, leaky, clean)}
+    assert tutor.ask(current, 1, "basics", pool, config=cfg).n_examples == 1
+
+
+def test_zero_examples_gives_warning(fake: FakeChat, valid_data: dict[str, Any], cfg: LLMConfig) -> None:
+    only = {"beispiel": make(valid_data, "beispiel")}
+    q = tutor.ask(only["beispiel"], 1, "basics", only, config=cfg)
+    assert q.n_examples == 0
+    assert q.warnings == (tutor.ZERO_SHOT_WARNING,)
+
+
+def test_no_zero_shot_warning_with_examples(fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig) -> None:
+    assert tutor.ZERO_SHOT_WARNING not in ask(exercises, cfg).warnings
+
+
+@pytest.mark.parametrize("hit", [True, False])
+def test_cache_hit_is_passed_on(
+    monkeypatch: pytest.MonkeyPatch, exercises: dict[str, Exercise], cfg: LLMConfig, hit: bool
+) -> None:
+    monkeypatch.setattr(tutor, "chat", FakeChat(cache_hit=hit))
+    assert ask(exercises, cfg).cache_hit is hit

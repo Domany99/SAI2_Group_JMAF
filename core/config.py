@@ -31,13 +31,17 @@ class LLMConfig(BaseModel):
     grader_model: str = Field(min_length=1)
     timeout_s: float = Field(gt=0)
     max_retries: int = Field(ge=0)
+    # Der BFH-Proxy (LiteLLM) liefert identische Anfragen sonst aus seinem Cache,
+    # auch bei Temperatur > 0. Für Eval-Läufe müssen die Aufrufe unabhängig sein.
+    no_cache: bool = True
     # Tutor (LLM 1). 0.7 wie im Log-Beispiel der Spezifikation. Das Eval-Grid
     # überschreibt Temperatur und Prompt-Version pro Aufruf.
     tutor_temperature: float = Field(default=0.7, ge=0, le=2)
     tutor_prompt_version: int = Field(default=1, ge=1)
     # Grader (LLM 2): tiefe Temperatur (Spezifikation), 0 für reproduzierbare Urteile.
+    # v2 seit I-18: Ein Fix ohne Begründung ist partial (Probelauf, prompts/README.md).
     grader_temperature: float = Field(default=0.0, ge=0, le=2)
-    grader_prompt_version: int = Field(default=1, ge=1)
+    grader_prompt_version: int = Field(default=2, ge=1)
 
     @field_validator("api_key")
     @classmethod
@@ -54,6 +58,7 @@ _ENV_TO_FIELD = {
     "GRADER_MODEL": "grader_model",
     "LLM_TIMEOUT_S": "timeout_s",
     "LLM_MAX_RETRIES": "max_retries",
+    "LLM_NO_CACHE": "no_cache",
     "TUTOR_TEMPERATURE": "tutor_temperature",
     "TUTOR_PROMPT_VERSION": "tutor_prompt_version",
     "GRADER_TEMPERATURE": "grader_temperature",

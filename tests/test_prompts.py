@@ -12,6 +12,7 @@ from core.prompts import (
     PromptError,
     PromptTemplate,
     available_versions,
+    hash_text,
     load_prompt,
     prompt_hash,
     read_frozen,
@@ -36,13 +37,27 @@ def test_tutor_v1_placeholders() -> None:
     assert load_prompt("tutor", 1).placeholders == TUTOR_V1_PLACEHOLDERS
 
 
-def test_grader_v1_placeholders() -> None:
-    assert load_prompt("grader", 1).placeholders == GRADER_V1_PLACEHOLDERS
+@pytest.mark.parametrize("number", [1, 2])
+def test_grader_placeholders(number: int) -> None:
+    # v2 ändert nur die Rubrik, der Vertrag mit core/grader.py bleibt gleich.
+    assert load_prompt("grader", number).placeholders == GRADER_V1_PLACEHOLDERS
 
 
-def test_grader_v1_gets_no_prior_knowledge() -> None:
+def test_grader_v2_adds_fix_rule_and_example() -> None:
+    v1 = load_prompt("grader", 1).text
+    v2 = load_prompt("grader", 2).text
+    rule = "Ein Fix ohne Begründung des Problems ist partial."
+    assert rule not in v1 and rule in v2
+    assert "Man sollte ein zufälliges Token statt der User-ID verwenden." in v2
+    # Sonst nichts geändert: v2 ist v1 plus Regel plus Beispiel.
+    removed = [line for line in v1.splitlines() if line not in v2.splitlines()]
+    assert removed == []
+
+
+@pytest.mark.parametrize("number", [1, 2])
+def test_grader_gets_no_prior_knowledge(number: int) -> None:
     # Sonst bewertet der Grader dieselbe Antwort je nach Segment anders (I-08, H11).
-    template = load_prompt("grader", 1)
+    template = load_prompt("grader", number)
     assert "prior_knowledge" not in template.placeholders
     assert not re.search(r"vorwissen|experienced|basics", template.text, re.IGNORECASE)
 
@@ -58,27 +73,31 @@ def test_v1_covers_issue_requirements(role: str, required: list[str]) -> None:
     assert not missing
 
 
-@pytest.mark.parametrize("role", ["tutor", "grader"])
-def test_v1_uses_swiss_spelling(role: str) -> None:
-    assert "ß" not in load_prompt(role, 1).text
+ALL_PROMPTS = [("tutor", 1), ("grader", 1), ("grader", 2)]
 
 
-@pytest.mark.parametrize("role", ["tutor", "grader"])
-def test_v1_contains_no_content_from_real_exercises(role: str) -> None:
+@pytest.mark.parametrize(("role", "number"), ALL_PROMPTS)
+def test_prompts_use_swiss_spelling(role: str, number: int) -> None:
+    assert "ß" not in load_prompt(role, number).text
+
+
+@pytest.mark.parametrize(("role", "number"), ALL_PROMPTS)
+def test_prompts_contain_no_content_from_real_exercises(role: str, number: int) -> None:
     # Tutor: Few-Shot kommt dynamisch aus anderen Übungen, nie fest im Prompt.
     # Grader: gelabelte Beispiele dürfen nicht aus echten Übungen stammen.
-    text = load_prompt(role, 1).text
+    text = load_prompt(role, number).text
     for exercise in load_all(EXERCISES_DIR).values():
         snippets = [s.hint for s in exercise.stages.values()] + list(exercise.answer_key.accepted)
         leaked = [s for s in snippets if s in text]
         assert not leaked, exercise.id
 
 
-def test_grader_v1_example_outputs_match_schema() -> None:
+@pytest.mark.parametrize("number", [1, 2])
+def test_grader_example_outputs_match_schema(number: int) -> None:
     # Die Beispielausgaben sind das Vorbild für das Modell, sie müssen selbst gültig sein.
     import json
 
-    text = load_prompt("grader", 1).text
+    text = load_prompt("grader", number).text
     examples = [json.loads(line) for line in text.splitlines() if line.startswith('{"verdict": "') and "|" not in line]
     assert len(examples) >= 6
     for ex in examples:
@@ -96,7 +115,7 @@ def test_rendered_v1_has_no_placeholders_left() -> None:
 
 def test_available_versions_lists_real_files() -> None:
     assert 1 in available_versions("tutor")
-    assert 1 in available_versions("grader")
+    assert {1, 2} <= set(available_versions("grader"))
 
 
 # --- Eingefrorene Versionen -------------------------------------------------
@@ -137,6 +156,13 @@ def test_hash_ignores_line_endings(tmp_path: Path) -> None:
     lf.write_bytes(b"Zeile 1\nZeile 2\n")
     crlf.write_bytes(b"Zeile 1\r\nZeile 2\r\n")
     assert prompt_hash(lf) == prompt_hash(crlf)
+
+
+def test_hash_text_matches_file_hash_and_ignores_line_endings(tmp_path: Path) -> None:
+    path = tmp_path / "x.md"
+    path.write_bytes(b"A\r\nB\n")
+    assert hash_text("A\nB\n") == hash_text("A\r\nB\r\n") == hash_text("A\rB\r") == prompt_hash(path)
+    assert re.fullmatch(r"[0-9a-f]{64}", hash_text(""))
 
 
 def test_hash_changes_with_content(tmp_path: Path) -> None:

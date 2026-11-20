@@ -19,9 +19,13 @@ import secrets
 import threading
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from core.models import Turn
 
+# Unter Windows bringt Python keine Zeitzonen-Daten mit, dafür ist tzdata
+# in requirements.txt gepinnt.
+TIMEZONE = ZoneInfo("Europe/Zurich")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOG_DIR = REPO_ROOT / "logs"
 SESSION_ID_HEX_BYTES = 4  # 8 Hex-Zeichen
@@ -37,8 +41,12 @@ def new_session_id() -> str:
 
 
 def now() -> datetime:
-    """Aktuelle Zeit in der lokalen Zeitzone, auf Sekunden gerundet (wie in der Spezifikation)."""
-    return datetime.now().astimezone().replace(microsecond=0)
+    """Aktuelle Zeit in Schweizer Zeit, auf Sekunden gerundet (wie in der Spezifikation).
+
+    Fest Europe/Zurich statt der Server-Zone: Streamlit Community Cloud läuft
+    in UTC, sonst lägen Zeitstempel und Tagesgrenze der Logdateien daneben.
+    """
+    return datetime.now(TIMEZONE).replace(microsecond=0)
 
 
 def log_path(ts: datetime, log_dir: Path = LOG_DIR) -> Path:
