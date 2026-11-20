@@ -1,4 +1,5 @@
-"""Pydantic-Modelle für eine Übung (Abschnitt "Exercise format").
+"""Pydantic-Modelle für eine Übung (Abschnitt "Exercise format") und für
+einen geloggten Turn (Abschnitt "Logging").
 
 Die Regeln, die nur ein einzelnes Feld betreffen, stehen direkt am Feld. Die
 Regeln über mehrere Felder (Stufen vollständig, forbidden gesetzt, Hint ohne
@@ -9,12 +10,24 @@ Dateinamen oder andere Dateien brauchen, prüft `core.exercises`.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from core.guard import find_forbidden
+from core.prior_knowledge import PriorKnowledge
 
 STAGES: tuple[int, ...] = (1, 2, 3)
 # In diesen Stufen darf der Tutor das Problem nicht nennen, also braucht es
@@ -188,3 +201,85 @@ class Exercise(_Model):
             raise ValueError(f"Stufe muss 1, 2 oder 3 sein, nicht {stage!r}")
         current = self.stages[stage]
         return {"exercise_id": self.id, "stage": stage, "goal": current.goal, "hint": current.hint}
+
+
+class Verdict(StrEnum):
+    """Urteil über eine Antwort: Ausgabe von LLM 2 und Eingabe der Stufen-Logik."""
+
+    RECOGNIZED = "recognized"
+    PARTIAL = "partial"
+    NOT = "not"
+
+
+# Wer einen Turn erzeugt hat:
+#   tutor   Frage von LLM 1 (auch eine vom Leak Guard blockierte, dann guard_hit=True)
+#   student Antwort der Studierenden
+#   grader  Urteil von LLM 2 (verdict gesetzt, text = evidence)
+#   hint    Fallback auf den Expert:innen-Hint nach dem zweiten Guard-Treffer
+Role = Literal["tutor", "student", "grader", "hint"]
+LLM_ROLES: tuple[str, ...] = ("tutor", "grader")
+SESSION_ID_PATTERN = r"^s-[0-9a-f]{8}$"
+SessionId = Annotated[str, StringConstraints(pattern=SESSION_ID_PATTERN)]
+
+
+class Turn(_Model):
+    """Eine Zeile im JSONL-Log (Abschnitt "Logging").
+
+    Die Feldreihenfolge ist die Reihenfolge im Log. Es gibt bewusst kein Feld
+    für Namen oder E-Mail-Adressen; `extra="forbid"` verhindert, dass eines
+    dazukommt. `model`, `prompt_version` und `temperature` sind nur bei LLM-
+    Turns gesetzt, `verdict` nur bei grader-Turns.
+    """
+
+    session: SessionId
+    exercise: ExerciseId
+    stage: int
+    role: Role
+    prompt_version: str | None = None
+    model: str | None = None
+    temperature: float | None = Field(default=None, ge=0)
+    text: str
+    guard_hit: bool = False
+    verdict: Verdict | None = None
+    ts: AwareDatetime  # ISO 8601 mit Zeitzone; naive Zeitstempel sind ein Fehler
+    prior_knowledge: PriorKnowledge
+
+    @field_validator("stage")
+    @classmethod
+    def _known_stage(cls, value: int) -> int:
+        # Stufe 0 (Hook) hat keine Frage und keine Antwort, also keinen Turn.
+        if value not in STAGES:
+            raise ValueError(f"Stufe muss 1, 2 oder 3 sein, nicht {value!r}")
+        return value
+
+    @model_validator(mode="after")
+    def _check_role(self) -> Turn:
+        violations: list[Violation] = []
+        llm_fields = {"prompt_version": self.prompt_version, "model": self.model, "temperature": self.temperature}
+
+        if self.role in LLM_ROLES:
+            for name, value in llm_fields.items():
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    violations.append(Violation(name, f"Pflicht bei role={self.role}"))
+            # Prompt-Dateien heissen <role>_v<n>.md (Abschnitt "Prompts").
+            if self.prompt_version and not _matches_prompt_version(self.prompt_version, self.role):
+                violations.append(Violation("prompt_version", f"muss {self.role}_v<n> sein"))
+        else:
+            for name, value in llm_fields.items():
+                if value is not None:
+                    violations.append(Violation(name, f"nur bei tutor und grader erlaubt, nicht bei {self.role}"))
+
+        if self.role == "grader" and self.verdict is None:
+            violations.append(Violation("verdict", "Pflicht bei role=grader"))
+        if self.role != "grader" and self.verdict is not None:
+            violations.append(Violation("verdict", "nur bei role=grader erlaubt"))
+        if self.guard_hit and self.role != "tutor":
+            violations.append(Violation("guard_hit", "nur bei role=tutor möglich"))
+
+        if violations:
+            raise RuleViolations(violations)
+        return self
+
+
+def _matches_prompt_version(value: str, role: str) -> bool:
+    return re.fullmatch(rf"{role}_v[1-9][0-9]*", value) is not None

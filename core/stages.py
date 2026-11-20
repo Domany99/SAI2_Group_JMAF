@@ -18,19 +18,24 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from core.models import STAGES
+from core.models import STAGES, Verdict
+
+__all__ = [
+    "FIRST_STAGE",
+    "HOOK_STAGE",
+    "LAST_STAGE",
+    "Outcome",
+    "StageError",
+    "StageState",
+    "Verdict",  # lebt in core.models (wird auch von Turn gebraucht), hier re-exportiert
+    "finish_hook",
+    "on_verdict",
+    "start",
+]
 
 HOOK_STAGE = 0
 FIRST_STAGE = STAGES[0]
 LAST_STAGE = STAGES[-1]
-
-
-class Verdict(StrEnum):
-    """Urteil über eine Antwort. Dieselben Werte liefert später LLM 2."""
-
-    RECOGNIZED = "recognized"
-    PARTIAL = "partial"
-    NOT = "not"
 
 
 class Outcome(StrEnum):

@@ -149,6 +149,32 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Einstufung startet keine Übung. In Schritt 2 wird die Stufe nur angezeigt
   und pro Antwort mitgeführt. Ab Schritt 3 geht sie in den Tutor-Kontext und
   in die Logs (Segmentvergleich, H11).
+- **`Verdict` in `core/models.py`:** liegt dort wie im Layout vorgesehen,
+  weil auch `Turn` ihn braucht (sonst Import-Kreis mit `core/stages.py`).
+  `core/stages.py` re-exportiert ihn, bestehende Imports bleiben gültig.
+- **Turn-Rollen:** `tutor` (Frage von LLM 1, auch blockierte mit
+  `guard_hit=true`), `student` (Antwort), `grader` (Urteil, `text` = evidence)
+  und `hint` (Fallback auf den Expert:innen-Hint nach dem zweiten
+  Guard-Treffer). So zeigt das Log, was die Person wirklich gesehen hat.
+  `model`, `prompt_version` und `temperature` sind nur bei `tutor` und
+  `grader` gesetzt (sonst `null`), `verdict` nur bei `grader`, `guard_hit`
+  nur bei `tutor`. `prompt_version` muss `<role>_v<n>` sein.
+- **Turn-Stufe:** nur 1 bis 3. Stufe 0 (Hook) hat weder Frage noch Antwort.
+- **Vorwissen im Log:** die Code-Werte `new | basics | experienced` aus
+  `core/prior_knowledge.py`, nicht die deutschen Werte aus Issue I-05.
+- **Session-ID:** `s-` plus 8 Hex-Zeichen aus `secrets` (z. B.
+  `s-7f3a91c2`) statt 4 wie im Beispiel der Spezifikation. Bei 4 Zeichen liegt
+  die Kollisionswahrscheinlichkeit ab etwa 50 Sessions bei rund 2 %.
+- **Zeitstempel:** ISO 8601 mit Zeitzone, auf Sekunden gerundet wie im
+  Beispiel. Naive Zeitstempel lehnt `Turn` ab. `now()` nimmt die lokale
+  Zone des Servers (auf Streamlit Community Cloud also UTC).
+- **Logdatei pro Tag:** Das Datum im Namen `logs/<YYYY-MM-DD>.jsonl` ist das
+  Datum von `ts` in dessen eigener Zone. Schreiben ist mit einem Lock
+  geschützt, weil Streamlit mehrere Sessions in Threads eines Prozesses
+  bedient.
+- **Freitext:** `text` enthält die Antworten wörtlich. Schreibt jemand den
+  eigenen Namen hinein, steht er im Log. Das lässt sich im Code nicht
+  verhindern und gehört in die Instruktion vor dem Pilot (siehe I-15).
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.
