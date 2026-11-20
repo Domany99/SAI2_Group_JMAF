@@ -175,6 +175,31 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Freitext:** `text` enthält die Antworten wörtlich. Schreibt jemand den
   eigenen Namen hinein, steht er im Log. Das lässt sich im Code nicht
   verhindern und gehört in die Instruktion vor dem Pilot (siehe I-15).
+- **Prompt-Platzhalter:** `{{name}}` statt `str.format`, weil die Prompts
+  JSON mit einfachen `{}` enthalten. `render()` ist streng (fehlende und
+  überzählige Werte sind Fehler) und ersetzt nicht rekursiv. Details in
+  `prompts/README.md`, Loader in `core/prompts.py`.
+- **Prompt = System-Prompt:** Die Vorlage ist die System-Nachricht. Antworten
+  der Studierenden kommen nie in die Vorlage, sondern als eigene
+  User-Nachricht, damit Anweisungen darin nicht als Teil des Prompts gelten.
+- **Feed back:** Der Tutor sieht ab Stufe 2 die letzte Antwort der Person
+  (als User-Nachricht), damit Feed back konkret wird. Er darf sie nicht als
+  richtig oder falsch bewerten. Das erweitert I-07 um einen optionalen
+  Parameter.
+- **Few-Shot im Tutor:** Platzhalter `examples` mit den Hints derselben
+  Stufe aus anderen Übungen, eingesetzt von `core/tutor.py`. Nichts davon
+  steht fest im Prompt, sonst wäre bei einer der Übungen ihr eigener Hint
+  dabei.
+- **Grader-Beispiele:** aus einer erfundenen Übung (Passwort-Reset über
+  `?user=42`, Decoy bcrypt), nicht aus `eval/data/` und nicht aus
+  `exercises/`. Ein Test prüft, dass keine Hints und keine `accepted` echter
+  Übungen in den Prompts stehen.
+- **Eingefrorene Prompts:** `prompts/frozen.txt` listet SHA-256 und
+  Dateiname jeder Version, die in einem Eval-Lauf verwendet wurde. Ein Test
+  schlägt fehl, wenn sich eine davon ändert. Der Hash ignoriert
+  Zeilenenden (git autocrlf unter Windows).
+- **Prompt-Sprache:** Deutsch, wie die Übungen und Hints, damit
+  Fachpersonen die Prompts direkt prüfen können.
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.

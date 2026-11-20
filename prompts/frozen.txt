@@ -1,0 +1,3 @@
+# Eingefrorene Prompt-Versionen: in einem Eval-Lauf verwendet, nie mehr bearbeiten.
+# Format pro Zeile: <sha256>  <dateiname>   (Hash mit core.prompts.prompt_hash, siehe README.md)
+# Noch leer: Es gab noch keinen Eval-Lauf.
