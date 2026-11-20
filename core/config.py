@@ -31,6 +31,10 @@ class LLMConfig(BaseModel):
     grader_model: str = Field(min_length=1)
     timeout_s: float = Field(gt=0)
     max_retries: int = Field(ge=0)
+    # Tutor (LLM 1). 0.7 wie im Log-Beispiel der Spezifikation. Das Eval-Grid
+    # überschreibt Temperatur und Prompt-Version pro Aufruf.
+    tutor_temperature: float = Field(default=0.7, ge=0, le=2)
+    tutor_prompt_version: int = Field(default=1, ge=1)
 
     @field_validator("api_key")
     @classmethod
@@ -47,6 +51,8 @@ _ENV_TO_FIELD = {
     "GRADER_MODEL": "grader_model",
     "LLM_TIMEOUT_S": "timeout_s",
     "LLM_MAX_RETRIES": "max_retries",
+    "TUTOR_TEMPERATURE": "tutor_temperature",
+    "TUTOR_PROMPT_VERSION": "tutor_prompt_version",
 }
 _FIELD_TO_ENV = {f: e for e, f in _ENV_TO_FIELD.items()}
 _DEFAULTS = {
