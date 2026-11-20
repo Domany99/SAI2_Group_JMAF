@@ -35,6 +35,9 @@ class LLMConfig(BaseModel):
     # überschreibt Temperatur und Prompt-Version pro Aufruf.
     tutor_temperature: float = Field(default=0.7, ge=0, le=2)
     tutor_prompt_version: int = Field(default=1, ge=1)
+    # Grader (LLM 2): tiefe Temperatur (Spezifikation), 0 für reproduzierbare Urteile.
+    grader_temperature: float = Field(default=0.0, ge=0, le=2)
+    grader_prompt_version: int = Field(default=1, ge=1)
 
     @field_validator("api_key")
     @classmethod
@@ -53,6 +56,8 @@ _ENV_TO_FIELD = {
     "LLM_MAX_RETRIES": "max_retries",
     "TUTOR_TEMPERATURE": "tutor_temperature",
     "TUTOR_PROMPT_VERSION": "tutor_prompt_version",
+    "GRADER_TEMPERATURE": "grader_temperature",
+    "GRADER_PROMPT_VERSION": "grader_prompt_version",
 }
 _FIELD_TO_ENV = {f: e for e, f in _ENV_TO_FIELD.items()}
 _DEFAULTS = {

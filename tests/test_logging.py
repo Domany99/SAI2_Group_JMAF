@@ -20,7 +20,7 @@ TS = datetime(2026, 11, 20, 10, 14, 3, tzinfo=CET)
 # Reihenfolge und Namen wie im Abschnitt "Logging" der Spezifikation, plus prior_knowledge.
 EXPECTED_KEYS = [
     "session", "exercise", "stage", "role", "prompt_version", "model", "temperature",
-    "text", "guard_hit", "verdict", "ts", "prior_knowledge",
+    "text", "guard_hit", "verdict", "ts", "prior_knowledge", "error",
 ]  # fmt: skip
 
 
@@ -89,6 +89,7 @@ def test_line_has_spec_fields_in_order(tmp_path: Path) -> None:
         "verdict": None,
         "ts": "2026-11-20T10:14:03+01:00",
         "prior_knowledge": "basics",
+        "error": None,
     }
 
 
@@ -294,6 +295,29 @@ def test_guard_hit_only_on_tutor(factory: Any) -> None:
 def test_guard_hit_on_hint_is_rejected() -> None:
     with pytest.raises(ValidationError, match="guard_hit"):
         student_turn(role="hint", guard_hit=True)
+
+
+def test_grader_error_with_partial_is_valid(tmp_path: Path) -> None:
+    turn = grader_turn(verdict="partial", text="{kein json", error="ungültiges JSON")
+    path = turn_log.write_turn(turn, tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["error"] == "ungültiges JSON"
+
+
+@pytest.mark.parametrize("verdict", ["recognized", "not"])
+def test_grader_error_requires_partial(verdict: str) -> None:
+    with pytest.raises(ValidationError, match="error: bei einem Fehler ist das Urteil immer partial"):
+        grader_turn(verdict=verdict, error="ungültiges JSON")
+
+
+@pytest.mark.parametrize("factory", [tutor_turn, student_turn])
+def test_error_only_on_grader(factory: Any) -> None:
+    with pytest.raises(ValidationError, match="error: nur bei role=grader"):
+        factory(error="irgendwas")
+
+
+def test_blank_error_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="error: darf nicht leer sein"):
+        grader_turn(error="  ")
 
 
 def test_turn_is_immutable() -> None:

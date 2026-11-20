@@ -17,7 +17,7 @@ FAKE_KEY = "sk-test-SUPERGEHEIM-1234567890"
 REQUEST = httpx2.Request("POST", "https://proxy.test/v1/chat/completions")
 ENV_VARS = [
     "LLM_BASE_URL", "LLM_API_KEY", "TUTOR_MODEL", "GRADER_MODEL", "LLM_TIMEOUT_S", "LLM_MAX_RETRIES",
-    "TUTOR_TEMPERATURE", "TUTOR_PROMPT_VERSION",
+    "TUTOR_TEMPERATURE", "TUTOR_PROMPT_VERSION", "GRADER_TEMPERATURE", "GRADER_PROMPT_VERSION",
 ]  # fmt: skip
 
 
@@ -343,20 +343,27 @@ def test_config_tutor_defaults(clean_env: pytest.MonkeyPatch) -> None:
     config = load_config(None)
     assert config.tutor_temperature == 0.7
     assert config.tutor_prompt_version == 1
+    assert config.grader_temperature == 0.0
+    assert config.grader_prompt_version == 1
 
 
 def test_config_tutor_values_from_env(clean_env: pytest.MonkeyPatch) -> None:
     clean_env.setenv("LLM_API_KEY", FAKE_KEY)
     clean_env.setenv("TUTOR_TEMPERATURE", "0.3")
     clean_env.setenv("TUTOR_PROMPT_VERSION", "2")
+    clean_env.setenv("GRADER_TEMPERATURE", "0.2")
+    clean_env.setenv("GRADER_PROMPT_VERSION", "3")
     config = load_config(None)
     assert config.tutor_temperature == 0.3
     assert config.tutor_prompt_version == 2
+    assert config.grader_temperature == 0.2
+    assert config.grader_prompt_version == 3
 
 
 @pytest.mark.parametrize(("name", "value"), [
     ("TUTOR_TEMPERATURE", "-0.1"), ("TUTOR_TEMPERATURE", "2.5"), ("TUTOR_TEMPERATURE", "warm"),
     ("TUTOR_PROMPT_VERSION", "0"), ("TUTOR_PROMPT_VERSION", "1.5"),
+    ("GRADER_TEMPERATURE", "-1"), ("GRADER_TEMPERATURE", "3"), ("GRADER_PROMPT_VERSION", "0"),
 ])  # fmt: skip
 def test_config_invalid_tutor_values(clean_env: pytest.MonkeyPatch, name: str, value: str) -> None:
     clean_env.setenv("LLM_API_KEY", FAKE_KEY)

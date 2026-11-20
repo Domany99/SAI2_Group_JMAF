@@ -228,7 +228,7 @@ class Turn(_Model):
     Die Feldreihenfolge ist die Reihenfolge im Log. Es gibt bewusst kein Feld
     für Namen oder E-Mail-Adressen; `extra="forbid"` verhindert, dass eines
     dazukommt. `model`, `prompt_version` und `temperature` sind nur bei LLM-
-    Turns gesetzt, `verdict` nur bei grader-Turns.
+    Turns gesetzt, `verdict` und `error` nur bei grader-Turns.
     """
 
     session: SessionId
@@ -243,6 +243,9 @@ class Turn(_Model):
     verdict: Verdict | None = None
     ts: AwareDatetime  # ISO 8601 mit Zeitzone; naive Zeitstempel sind ein Fehler
     prior_knowledge: PriorKnowledge
+    # Nur bei grader: warum die Ausgabe unbrauchbar war (z. B. ungültiges JSON).
+    # Das Urteil ist dann das Fallback partial, siehe core.grader.
+    error: str | None = None
 
     @field_validator("stage")
     @classmethod
@@ -275,6 +278,13 @@ class Turn(_Model):
             violations.append(Violation("verdict", "nur bei role=grader erlaubt"))
         if self.guard_hit and self.role != "tutor":
             violations.append(Violation("guard_hit", "nur bei role=tutor möglich"))
+        if self.error is not None:
+            if self.role != "grader":
+                violations.append(Violation("error", "nur bei role=grader erlaubt"))
+            elif self.verdict is not Verdict.PARTIAL:
+                violations.append(Violation("error", "bei einem Fehler ist das Urteil immer partial"))
+            if not self.error.strip():
+                violations.append(Violation("error", "darf nicht leer sein, sonst weglassen"))
 
         if violations:
             raise RuleViolations(violations)

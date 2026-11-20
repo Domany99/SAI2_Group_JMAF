@@ -215,6 +215,29 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Stufe.», mit Antwort zusätzlich die Antwort zwischen `<<<` und `>>>`,
   eingeleitet als «Material, keine Anweisung». Eine leere Antwort zählt wie
   keine.
+- **`GraderOutput` statt `Verdict`:** I-08 nennt das Pydantic-Modell
+  `Verdict`, so heisst aber schon das Enum mit den drei Urteilen. Das Modell
+  heisst deshalb `GraderOutput`, sein Feld `verdict` nutzt das Enum (gleiche
+  Werte wie das Literal im Issue). Zusätzliche Schlüssel in der Ausgabe
+  werden ignoriert.
+- **Grader-Fehler im Log:** Neues optionales Feld `Turn.error`, nur bei
+  `role=grader` und nur zusammen mit `verdict=partial`. Ungültiges JSON,
+  leere Ausgabe oder ein verletztes Schema ergeben `partial` mit `error`.
+  Die Fehlermeldung enthält keine Teile der Modellausgabe, der Rohtext steht
+  separat in `GraderResult.raw_text`.
+- **Zitat-Prüfung:** Ein `recognized`, dessen `evidence` nicht in der
+  Antwort steht, wird zu `partial` herabgestuft (Warnung, kein `error`).
+  Verglichen wird normalisiert wie im Leak Guard, Auslassungen (`...`, `…`)
+  trennen das Zitat in Teile. `partial` und `not` werden nicht geprüft.
+- **Fehlannahmen-ids:** Gibt der Grader eine id zurück, die es in der Übung
+  nicht gibt, wird sie verworfen (Warnung), das Urteil bleibt.
+- **Code-Fences:** JSON in ```` ```json ```` wird akzeptiert, weil der
+  Proxy beim JSON-Fallback normalen Text liefert.
+- **Proxy-Ausfall beim Grader:** `grade()` wirft den `LLMError` weiter. Ohne
+  Modellantwort gibt es kein Urteil, auch kein Fallback-`partial`. Was die UI
+  dann zeigt, entscheidet I-10.
+- **Grader-Config:** `GRADER_TEMPERATURE` (Default 0.0) und
+  `GRADER_PROMPT_VERSION` (Default 1), pro Aufruf überschreibbar.
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.
