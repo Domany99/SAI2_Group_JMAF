@@ -112,6 +112,15 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   `verdict` (`correct`, `partial`, `wrong`) und `reason`. Wenn vorhanden,
   mindestens 2 Optionen und mindestens eine `correct`. Erscheint erst nach dem
   Erkennen und nur, wenn die Person keinen eigenen Fix findet.
+- **Reihenfolge:** Pflichtfeld `order` (ganze Zahl ab 1) auf oberster Ebene,
+  eindeutig über alle Übungen. `load_all` sortiert danach statt nach id, die
+  App zeigt die Übungen in dieser Reihenfolge. Werte: API-Key 1, Strapi 2,
+  XSS 3.
+- **API-Key-Übung:** `api-key-frontend` hat ab `version: 2` den echten Fall
+  (Key über GitHub Secrets in `secret.js` gebaut und mit der Seite
+  veröffentlicht) statt des Wetter-API-Platzhalters. Die id bleibt, weil
+  Tests, Skripte und Probeläufe sie verwenden. Probeläufe vor dem 20.11.2026
+  beziehen sich auf Version 1.
 - **Strapi-Übung:** `strapi-auth-false` ersetzt den Platzhalter
   `strapi-public-create`. In den Agent-Tests war Public `create` gewollt, die
   Lücke war `auth: false` in der Route, das auch Ändern und Löschen öffnet.

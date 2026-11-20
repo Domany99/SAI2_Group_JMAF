@@ -126,6 +126,8 @@ class Exercise(_Model):
     id: ExerciseId
     title: NonEmptyStr
     version: int = Field(strict=True, ge=1)
+    # Reihenfolge in der Übungsauswahl, eindeutig über alle Übungen (prüft core.exercises)
+    order: int = Field(strict=True, ge=1)
     decoy: bool = Field(strict=True)  # Pflichtfeld ohne Default
     hook: NonEmptyStr | None = None  # Stufe 0: optionaler Incident-Hook
     scenario: Scenario
