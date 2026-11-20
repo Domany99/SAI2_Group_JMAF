@@ -2,14 +2,15 @@
 
 Die Regeln, die nur ein einzelnes Feld betreffen, stehen direkt am Feld. Die
 Regeln über mehrere Felder (Stufen vollständig, forbidden gesetzt, Hint ohne
-eigene forbidden-Begriffe) prüft `Exercise._check_stages`. Regeln, die den
+eigene forbidden-Begriffe) prüft `Exercise._check_stages`, die Regeln für
+misconceptions und fix_choices `Exercise._check_extras`. Regeln, die den
 Dateinamen oder andere Dateien brauchen, prüft `core.exercises`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
@@ -20,6 +21,7 @@ STAGES: tuple[int, ...] = (1, 2, 3)
 # forbidden-Begriffe, und der Tutor sieht weder answer_key noch close.
 GUARDED_STAGES: tuple[int, ...] = (1, 2)
 MIN_ACCEPTED = 2
+MIN_FIX_CHOICES = 2
 
 
 def _not_blank(value: str) -> str:
@@ -30,6 +32,9 @@ def _not_blank(value: str) -> str:
 
 NonEmptyStr = Annotated[str, AfterValidator(_not_blank)]
 ExerciseId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
+# Gleiches Format wie die Übungs-id. Der Grader gibt diese id als
+# "misconception" zurück, damit der Code die passende Reaktion findet.
+MisconceptionId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 
 
 @dataclass(frozen=True)
@@ -82,9 +87,26 @@ class Stage(_Model):
     forbidden: list[NonEmptyStr]
 
 
+class Misconception(_Model):
+    """Typische Fehlannahme mit vorbereiteter Reaktion (Expert:innen-Text)."""
+
+    id: MisconceptionId
+    belief: NonEmptyStr  # so äussert sich die Fehlannahme in einer Antwort
+    reaction: NonEmptyStr  # Rückfrage, die die Annahme aufgreift statt sie als falsch zu markieren
+
+
+class FixChoice(_Model):
+    """Eine Option der Fix-Auswahl. Wird erst nach dem Erkennen gezeigt."""
+
+    text: NonEmptyStr
+    verdict: Literal["correct", "partial", "wrong"]
+    reason: NonEmptyStr
+
+
 class Close(_Model):
     fix: NonEmptyStr
     pruefmuster: NonEmptyStr
+    fix_choices: list[FixChoice] = []  # optional, Regeln in Exercise._check_extras
 
 
 class Exercise(_Model):
@@ -97,6 +119,7 @@ class Exercise(_Model):
     answer_key: AnswerKey
     stages: dict[int, Stage]
     close: Close
+    misconceptions: list[Misconception] = []  # optional, nie im Tutor-Kontext
 
     @model_validator(mode="after")
     def _check_stages(self) -> Exercise:
@@ -124,11 +147,41 @@ class Exercise(_Model):
             raise RuleViolations(violations)
         return self
 
+    @model_validator(mode="after")
+    def _check_extras(self) -> Exercise:
+        """Regeln für misconceptions und close.fix_choices.
+
+        Läuft nach _check_stages. Schlägt jene fehl, meldet Pydantic nur deren
+        Verstösse; diese hier erscheinen dann beim nächsten Laden.
+        """
+        violations: list[Violation] = []
+
+        ids = [m.id for m in self.misconceptions]
+        duplicates = sorted({i for i in ids if ids.count(i) > 1})
+        if duplicates:
+            violations.append(Violation("misconceptions", f"id muss eindeutig sein (doppelt: {duplicates})"))
+
+        choices = self.close.fix_choices
+        if choices:
+            if len(choices) < MIN_FIX_CHOICES:
+                violations.append(
+                    Violation(
+                        "close.fix_choices",
+                        f"mindestens {MIN_FIX_CHOICES} Optionen nötig (gefunden: {len(choices)})",
+                    )
+                )
+            if not any(c.verdict == "correct" for c in choices):
+                violations.append(Violation("close.fix_choices", "mindestens eine Option muss correct sein"))
+
+        if violations:
+            raise RuleViolations(violations)
+        return self
+
     def tutor_context(self, stage: int) -> dict[str, Any]:
         """Was der Tutor (LLM 1) für eine Stufe sehen darf.
 
-        Nur goal und hint der Stufe. answer_key, close und forbidden sind
-        bewusst nicht enthalten: Was der Tutor nicht kennt, kann er auch
+        Nur goal und hint der Stufe. answer_key, close, misconceptions und
+        forbidden sind bewusst nicht enthalten: Was der Tutor nicht kennt, kann er auch
         nicht umschreiben und so verraten.
         """
         if stage not in STAGES:

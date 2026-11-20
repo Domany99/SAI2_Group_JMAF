@@ -1,0 +1,147 @@
+id: xss-projektsuche
+title: Suchbegriff aus dem Link per innerHTML in der Projektsuche
+version: 1
+decoy: false
+
+scenario:
+  requirement: >
+    Lea hat für das Webmodul eine Portfolio-Seite auf GitHub Pages gebaut. Sie
+    möchte eine Suche für ihre Projekte und Links teilen können, die direkt
+    gefiltert öffnen, zum Beispiel für eine Bewerbung. Die Seite hat ein
+    Suchfeld (id search) und eine leere Liste (id project-list). Die Datei
+    projects.json mit drei Projekten (title, description) liegt im selben
+    Repository. Lea will die Seite heute veröffentlichen und den Link in ihre
+    Bewerbung schreiben.
+  # Konstruiert, nicht aus einem echten Lauf: In 5 von 5 Tests war der Code der
+  # KI für diesen Prompt sicher. Gegenüber Studierenden als nachgebaut deklarieren.
+  ai_chat: |
+    Lea: füge meiner projektseite eine suche hinzu. man soll auch einen link
+    mit dem suchbegriff teilen können zb ?q=python. sende mir den kompletten code
+
+    (Für diese Übung nachgebaut, nach dem Muster aus einem echten
+    Studierendenprojekt.)
+  # Wörtlich aus dem Aufgabe-3-Dokument, getestet in Chromium am 20.10.2026.
+  # Länger als 20 Zeilen: Das Suchfeld und sein Listener werden für die
+  # Fehlannahme "suchfeld-pruefen" gebraucht, gekürzter Code wäre ungetestet.
+  code: |
+    // Suchbegriff aus der URL lesen, z.B. index.html?q=python
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("q") || "";
+
+    const searchInput = document.getElementById("search");
+    const list = document.getElementById("project-list");
+    let allProjects = [];
+
+    searchInput.value = query;
+
+    // Projekte aus der JSON-Datei laden
+    async function loadProjects() {
+      const response = await fetch("projects.json");
+      allProjects = await response.json();
+      renderProjects(query);
+    }
+
+    // Gefilterte Projekte anzeigen
+    function renderProjects(term) {
+      const filtered = allProjects.filter((p) =>
+        p.title.toLowerCase().includes(term.toLowerCase())
+      );
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<li class="empty">Keine Projekte gefunden für «${term}».</li>`;
+        return;
+      }
+
+      list.innerHTML = filtered
+        .map((p) => `<li><h3>${p.title}</h3><p>${p.description}</p></li>`)
+        .join("");
+    }
+
+    // Bei jeder Eingabe neu filtern
+    searchInput.addEventListener("input", () => renderProjects(searchInput.value));
+
+    loadProjects();
+
+answer_key:
+  issue: >
+    Der Suchbegriff kommt aus der URL (params.get("q")), also bestimmt ihn, wer
+    den Link verschickt. Passt er zu keinem Projekt, schreibt der Code ihn per
+    innerHTML als HTML in die Meldung "Keine Projekte gefunden". Jeder
+    Angriffstext landet in diesem Zweig.
+  consequence: >
+    Ein präparierter Link wie index.html?q=<img src=x onerror=...> führt beim
+    Öffnen beliebiges JavaScript im Namen von Leas Seite aus: Inhalte fälschen,
+    etwa ein falsches Kontaktformular, Besucher umleiten, Daten im Browser
+    derselben Herkunft lesen. Ein Test mit <script> schlägt fehl, weil der
+    Browser Script-Tags über innerHTML nicht ausführt.
+  accepted:
+    - "über den q-Parameter im Link kann jeder eigenes HTML einschleusen, das per innerHTML eingefügt wird"
+    - "der Suchbegriff aus der URL landet ungeprüft im innerHTML der Meldung, so läuft fremder Code auf Leas Seite"
+    - "wer den Link baut, kann ein img mit onerror in den Suchbegriff setzen, das wird ausgeführt"
+    - "der Begriff aus dem Link wird als HTML statt als Text angezeigt, damit kann man fremdes Skript ausführen"
+    - "Cross-Site-Scripting: Quelle ist die URL, Senke ist innerHTML, Besucher führen fremden Code aus"
+
+stages:
+  1:
+    goal: Auf die Quelle des Suchbegriffs und seinen Weg in die Seite lenken, ohne die Senke zu nennen
+    # TODO Expert:in: Vorschlag aus Aufgabe 3, ähnlich den Stufen des WSEG-Dozenten (10.11.). Final durch die Fachperson.
+    hint: "Lea will einen Link mit Suchbegriff verschicken. Wer bestimmt eigentlich, was in diesem Suchbegriff steht, und an welcher Stelle taucht er auf der Seite wieder auf?"
+    forbidden: ["innerHTML", "HTML", "textContent", "XSS", "Cross-Site", "Scripting", "Script", "JavaScript", "onerror", "img", "einschleusen", "Injection", "Angriff", "Angreifer", "Schadcode", "unsicher"]
+  2:
+    goal: Den Weg der Daten von der URL bis zur Meldung verfolgen lassen
+    # TODO Expert:in: Vorschlag aus Aufgabe 3. Final durch die Fachperson.
+    hint: "Verfolge den Suchbegriff von der URL bis zur Meldung 'Keine Projekte gefunden'. Wird er dort als Text eingefügt oder als HTML? Was ändert sich, wenn er spitze Klammern enthält?"
+    forbidden: ["innerHTML", "textContent", "XSS", "Cross-Site", "Scripting", "Script", "JavaScript", "onerror", "img", "einschleusen", "Injection", "Angriff", "Schadcode"]
+  3:
+    goal: Übertragung über ein Gästebuch-Beispiel, die Person verbindet es selbst mit dem Link
+    # TODO Expert:in: Vorschlag aus Aufgabe 3. Final durch die Fachperson.
+    hint: "Stell dir ein Gästebuch vor: Jemand trägt als Namen <b>Anna</b> ein, und auf der Seite steht der Name fett. Das Gästebuch hat also HTML von einer fremden Person übernommen. Was könnte jemand statt Fettschrift noch einschleusen, und gilt das auch für Leas Link?"
+    # Auch Stufe 3 nennt den fertigen Angriff nicht.
+    forbidden: ["XSS", "Cross-Site", "onerror"]
+
+# Nach dem Abschluss zusätzlich deklarieren: Der Code ist nachgebaut, in den Tests
+# war die KI hier sicher. Abschlussfragen und Befund zu den KI-Läufen 5 bis 9
+# stehen im Aufgabe-3-Dokument, das Schema hat dafür noch kein Feld.
+close:
+  fix: >
+    innerHTML durch textContent ersetzen und die Elemente einzeln bauen, dann
+    behandelt der Browser den Suchbegriff immer als Text. In der Meldung:
+    const empty = document.createElement("li"); empty.textContent =
+    `Keine Projekte gefunden für «${term}».`; list.replaceChildren(empty);
+    Die Projektliste ebenso mit createElement und textContent bauen. Sie war
+    kein direkter Angriffsweg, aber wer überall textContent nutzt, muss nicht
+    bei jeder Stelle neu überlegen. Getestet am 20.10.2026: Alle Testeingaben
+    erscheinen nur noch als Text.
+  pruefmuster: "Quelle und Senke: Woher kommen die Daten (URL, Formular, fremde API, localStorage)? Wo landen sie (innerHTML, outerHTML, insertAdjacentHTML, document.write)? Fremde Quelle plus HTML-Senke heisst: auf textContent umstellen."
+  # Laut Aufgabe-3-Dokument nur der richtige Fix und drei falsche. Eigene
+  # Escape-Funktion, Regex-Prüfung und CSP sind teilweise richtig und bleiben
+  # draussen, damit die Auswahl scharf bleibt.
+  fix_choices:
+    - text: "innerHTML durch textContent ersetzen und die Elemente einzeln bauen"
+      verdict: correct
+      reason: "Der Browser behandelt den Suchbegriff immer als Text, egal was er enthält."
+    - text: "<script> aus dem Suchbegriff herausfiltern"
+      verdict: wrong
+      reason: "Der Angriff braucht kein Script-Tag, ein Bild mit onerror genügt. Filterlisten sind fast immer lückenhaft."
+    - text: "Eingaben im Suchfeld prüfen (pattern, maxlength)"
+      verdict: wrong
+      reason: "Der Angriff kommt über den Link, nicht über das Feld. Die Prüfung wird gar nie durchlaufen."
+    - text: "Suchbegriff mit encodeURIComponent ausgeben"
+      verdict: wrong
+      reason: "Falscher Kontext: Das kodiert für URLs, nicht für HTML, und zeigt den Text verunstaltet an."
+
+# Der Grader gibt die id als "misconception" zurück.
+# TODO Expert:in: Reaktionen aus Aufgabe 3, noch nicht von einer Security-Lehrperson geprüft.
+misconceptions:
+  - id: script-test
+    belief: "Ich habe <script> eingegeben, nichts ist passiert, also ist der Code sicher."
+    reaction: "Gut, dass du es ausprobiert hast, und du hast recht: Script-Tags, die auf diesem Weg in die Seite kommen, führt der Browser nicht aus. Heisst das schon, dass gar kein HTML wirkt? Probier mal, ob Formatierung durchkommt."
+  - id: projektliste
+    belief: "Die Projektliste mit innerHTML ist das Problem."
+    reaction: "Gute Stelle, dort steht dasselbe innerHTML. Woher kommen die Daten an dieser Stelle, und woher in der Meldung darunter? Wer kann was davon beeinflussen?"
+  - id: suchfeld-pruefen
+    belief: "Das Suchfeld ist das Problem, man muss die Eingabe prüfen."
+    reaction: "Wer etwas ins Suchfeld tippt, trifft nur sich selbst. Welcher andere Weg führt einen Suchbegriff auf die Seite, und wer kontrolliert ihn?"
+  - id: nur-portfolio
+    belief: "Das ist doch nur eine Portfolio-Seite ohne Login, also egal."
+    reaction: "Lea schickt den Link mit ihrer Bewerbung. Was wäre, wenn jemand einen ähnlichen Link mit einem gefälschten Kontaktformular auf Leas Seite herumschickt?"

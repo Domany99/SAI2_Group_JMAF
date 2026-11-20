@@ -34,7 +34,7 @@ def _assert_problem(problems: list[str], path: Path, field: str, rule_fragment: 
 
 def test_real_exercises_load_without_errors() -> None:
     exercises = load_all(EXERCISES_DIR)
-    assert list(exercises) == ["api-key-frontend", "strapi-public-create"]
+    assert list(exercises) == ["api-key-frontend", "strapi-auth-false", "xss-projektsuche"]
 
 
 # --- Gültiger Grundfall --------------------------------------------------------
@@ -305,3 +305,64 @@ def test_load_all_empty_folder(tmp_path: Path) -> None:
 def test_load_all_missing_folder(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_all(tmp_path / "gibt-es-nicht")
+
+
+# --- Fehlannahmen und Fix-Auswahl (optional) ---------------------------------------
+
+_MISCONCEPTION = {"id": "cors-schuetzt", "belief": "CORS schützt die API.", "reaction": "Braucht man dafür einen Browser?"}
+_FIX_CHOICES = [
+    {"text": "Rechte in der Rolle vergeben", "verdict": "correct", "reason": "sichtbar und widerrufbar"},
+    {"text": "CORS strenger einstellen", "verdict": "wrong", "reason": "hält nur Browser auf"},
+]
+
+
+def test_misconceptions_and_fix_choices_are_optional(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    exercise = load_exercise(write_exercise(valid_data))
+    assert exercise.misconceptions == []
+    assert exercise.close.fix_choices == []
+
+
+def test_misconceptions_and_fix_choices_load(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["misconceptions"] = [_MISCONCEPTION]
+    valid_data["close"]["fix_choices"] = _FIX_CHOICES
+    exercise = load_exercise(write_exercise(valid_data))
+    assert exercise.misconceptions[0].id == "cors-schuetzt"
+    assert [c.verdict for c in exercise.close.fix_choices] == ["correct", "wrong"]
+
+
+def test_duplicate_misconception_id(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["misconceptions"] = [_MISCONCEPTION, dict(_MISCONCEPTION)]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "misconceptions", "muss eindeutig sein")
+
+
+@pytest.mark.parametrize("bad_id", ["CORS", "cors_schuetzt", ""])
+def test_misconception_id_format(write_exercise: Writer, valid_data: dict[str, Any], bad_id: str) -> None:
+    valid_data["misconceptions"] = [{**_MISCONCEPTION, "id": bad_id}]
+    path = write_exercise(valid_data)
+    assert any(p.startswith(f"{path}: misconceptions.0.id: ") for p in _problems(path))
+
+
+@pytest.mark.parametrize("field", ["belief", "reaction"])
+def test_empty_misconception_text(write_exercise: Writer, valid_data: dict[str, Any], field: str) -> None:
+    valid_data["misconceptions"] = [{**_MISCONCEPTION, field: " "}]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, f"misconceptions.0.{field}", "darf nicht leer sein")
+
+
+def test_fix_choices_need_two_options(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["close"]["fix_choices"] = _FIX_CHOICES[:1]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "close.fix_choices", "mindestens 2 Optionen")
+
+
+def test_fix_choices_need_a_correct_option(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["close"]["fix_choices"] = [{**c, "verdict": "wrong"} for c in _FIX_CHOICES]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "close.fix_choices", "mindestens eine Option muss correct sein")
+
+
+def test_fix_choice_verdict_values(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["close"]["fix_choices"] = [_FIX_CHOICES[0], {**_FIX_CHOICES[1], "verdict": "falsch"}]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "close.fix_choices.1.verdict", "erlaubt sind nur")
