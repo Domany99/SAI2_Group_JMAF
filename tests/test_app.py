@@ -16,11 +16,16 @@ from streamlit.testing.v1 import AppTest
 from core import grader, llm, tutor
 from core import logging as turn_log
 from core.config import ConfigError, LLMConfig
+from core.exercises import load_exercise
 from core.llm import LLMResult, LLMUnavailableError
 from core.logging import read_turns
 
 APP = Path(__file__).resolve().parent.parent / "app" / "main.py"
 EXERCISE = "api-key-frontend"
+# Aus der Übungsdatei gelesen, damit die Tests Textänderungen an der Übung überstehen.
+_STAGE_1 = load_exercise(APP.parent.parent / "exercises" / f"{EXERCISE}.yaml").stages[1]
+HINT_1 = _STAGE_1.hint
+LEAK_1 = f"Ist das {_STAGE_1.forbidden[0]}?"  # enthält einen verbotenen Begriff aus Stufe 1
 SUBMIT = "FormSubmitter:answer_form-Antwort senden"
 TUTOR_QUESTION = "Wer kann das alles im Browser sehen?"
 ANSWER = "Den Key sieht jeder im Netzwerk-Tab."
@@ -97,7 +102,7 @@ def test_fixed_mode_uses_hints_and_buttons_and_logs_nothing(
     at = AppTest.from_file(str(APP), default_timeout=30)
     open_exercise(at)
 
-    assert "Wer ausser dir kann alles sehen" in text_of(at)  # Hint aus der Übungsdatei
+    assert HINT_1 in text_of(at)  # Hint aus der Übungsdatei
     answer(at)
     assert at.button(key="verdict_partial")
     at.button(key="verdict_partial").click().run()
@@ -152,12 +157,12 @@ def test_llm_mode_question_is_asked_once_per_stage(
 def test_llm_mode_guard_hit_regenerates_and_logs(
     monkeypatch: pytest.MonkeyPatch, llm_mode: None, log_dir: Path
 ) -> None:
-    monkeypatch.setattr(tutor, "chat", Scripted("Wo steht der API-Key?", TUTOR_QUESTION))
+    monkeypatch.setattr(tutor, "chat", Scripted(LEAK_1, TUTOR_QUESTION))
     at = AppTest.from_file(str(APP), default_timeout=30)
     open_exercise(at)
 
     assert TUTOR_QUESTION in text_of(at)
-    assert "Wo steht der API-Key?" not in text_of(at)
+    assert LEAK_1 not in text_of(at)
     assert [(t.role, t.guard_hit, t.attempt) for t in logged(log_dir)] == [("tutor", True, 1), ("tutor", False, 2)]
 
 
@@ -168,7 +173,7 @@ def test_llm_mode_tutor_down_shows_hint_with_note(
     at = AppTest.from_file(str(APP), default_timeout=30)
     open_exercise(at)
 
-    assert "Wer ausser dir kann alles sehen" in text_of(at)
+    assert HINT_1 in text_of(at)
     assert any("nicht erreichbar" in c.value for c in at.caption)
     [hint] = logged(log_dir)
     assert (hint.role, hint.fallback) == ("hint", "llm_error")

@@ -1,67 +1,169 @@
 id: api-key-frontend
-title: Wetter-API-Key im Frontend
-version: 1
+title: API-Key über GitHub Secrets in die Portfolio-Seite gebaut
+# Version 2: Inhalt ersetzt. Version 1 war ein Wetter-API-Platzhalter. Die id
+# bleibt, weil Tests, Skripte und Probeläufe sie verwenden.
+version: 2
+order: 1
 decoy: false
+
+# Stufe 0 (nur mit HOOK=incident). Nennt den Key bewusst nicht. Echter Vorfall, anonymisiert.
+hook: >
+  Im November bekam ein Student eine E-Mail seines KI-Anbieters: Sein
+  Monatslimit sei überschritten. Seine Portfolio-Seite war seit der Benotung
+  im Sommer nicht mehr in Gebrauch.
 
 scenario:
   requirement: >
-    Kursauftrag: Baue eine Seite, die das aktuelle Wetter in Bern anzeigt.
-    Rufe die Wetter-API (OpenWeatherMap) direkt aus der Seite mit fetch() auf.
+    Lea baut für das Webmodul ihre Portfolio-Seite auf GitHub Pages.
+    Recruiter sollen in einem KI-Chat fragen können, ob sie zu einer Stelle
+    passt. Der Chat ruft die Anthropic API direkt aus der Seite auf. Ein
+    erster API-Key landete im Repository und wurde vom Anbieter sofort
+    gesperrt. Im Kurs gibt es eine Anleitung "Secrets für statische GitHub
+    Pages": Der Key liegt als GitHub Secret, ein Workflow schreibt ihn beim
+    Deploy in die Datei secret.js, und secret.js steht in .gitignore. Lea
+    lässt sich das von einer KI umsetzen. Die Seite läuft, der Chat
+    antwortet. Lea will den Link heute in ihre Bewerbungen schreiben.
+  # Echter Fall (Mai 2026), beide Sätze wörtlich aus dem Originalchat. Vorher
+  # hatte die KI selbst gewarnt, Key-Schutz auf Static Hosting sei
+  # "architektonisch unlösbar".
   ai_chat: |
-    TODO: Auszug aus dem echten Testchat einfügen.
-    (Sinngemäss: Die KI liefert das Skript mit dem Key direkt im Code und
-    erklärt nur, wo man den eigenen Key einsetzt.)
-  # Der Key ist erfunden. Mit einem echten Key läuft der Code so im Browser.
-  code: |
-    <p id="wetter">Lade Wetter …</p>
-    <script>
-      const API_KEY = "8f3c2a7e5b1d4c9fa0e6b2d9c7a1f4e3";
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=Bern&units=metric&lang=de&appid=${API_KEY}`;
+    Lea: der dozent will es über die secrets lösen
 
-      fetch(url)
-        .then((res) => res.json())
-        .then((data) => {
-          document.getElementById("wetter").textContent =
-            `${data.name}: ${Math.round(data.main.temp)} °C, ${data.weather[0].description}`;
+    KI (gekürzt): [...] Danach deployed GitHub den Key nie in den
+    Source-Code, nur in den Build-Output. Das ist die saubere Lösung.
+  # Workflow wörtlich aus dem echten Projekt, script.js auf die relevanten Zeilen
+  # gekürzt. Länger als 20 Zeilen, entschieden am 20.11. wie bei xss-projektsuche.
+  code: |
+    # .github/workflows/pages.yml (Ausschnitt)
+          - name: Inject API Key
+            run: echo "const API_KEY = '${{ secrets.ANTHROPIC_API_KEY }}';" > secret.js
+
+          - name: Upload artifact
+            uses: actions/upload-pages-artifact@v3
+            with:
+              path: '.'
+
+    # .gitignore
+    secret.js
+
+    <!-- index.html (Ausschnitt) -->
+    <script src="secret.js"></script>
+    <script src="script.js"></script>
+
+    // script.js (Ausschnitt)
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 500,
+            system: systemPrompt,
+            messages: conversationHistory
         })
-        .catch(() => {
-          document.getElementById("wetter").textContent = "Wetter nicht verfügbar";
-        });
-    </script>
+    });
 
 answer_key:
-  issue: Der API-Key wird mit der Seite an jeden Browser ausgeliefert.
+  issue: >
+    Der Workflow schreibt den Key beim Build in secret.js und veröffentlicht
+    den ganzen Ordner (path: '.') mit der Seite. index.html lädt secret.js in
+    jeden Browser, weil der Browser den Key im Klartext für x-api-key braucht.
+    GitHub Secrets und .gitignore halten den Key nur aus dem Repository, nicht
+    aus dem ausgelieferten Code. Die Lücke steht im Satz der KI: "nur in den
+    Build-Output".
   consequence: >
-    Jede Besucherin und jeder Besucher kann den Key aus Quelltext oder
-    Netzwerk-Tab kopieren und die API auf Kosten bzw. im Kontingent des
-    Kontoinhabers nutzen.
+    Jede Person kann secret.js abrufen (DevTools, Network-Tab oder direkt per
+    URL), den Key kopieren und die API von überall nutzen, mit beliebigem
+    Modell und auf Leas Kosten, bis Guthaben oder Limit greifen. Im echten
+    Fall begann der Missbrauch nach 156 Tagen: zuerst Abtasten auf mehreren
+    Modellen, dann 1,56 Mio. Token an einem Tag.
   accepted:
-    - "der Key ist im Browser sichtbar"
-    - "jeder kann den Key aus dem Quelltext kopieren"
-    - "in den Devtools / im Netzwerk-Tab sieht man den Key"
-    - "andere können die API mit unserem Key nutzen, auf unsere Kosten"
+    - "der Key steht nach dem Build in secret.js, und die Datei wird mit der Seite an jeden Besucher ausgeliefert"
+    - "GitHub Secrets schützen nur das Repository, im Browser ist der Key trotzdem lesbar"
+    - "jeder kann secret.js im Browser oder in den DevTools öffnen und den Key kopieren"
+    - "der Browser braucht den Key im Klartext für die Anfrage, also ist er öffentlich"
+    - "Fremde können den Key aus der Seite holen und die API auf Leas Kosten nutzen"
 
 stages:
   1:
-    goal: Offene Frage, wer den ausgelieferten Code sehen kann
-    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
-    hint: "Wer ausser dir kann alles sehen, was diese Seite an den Browser schickt?"
-    forbidden: ["API-Key", "API key", "Key", "Schlüssel", "secret", "geheim", "Token", "appid", "leak", "Zugangsdaten"]
+    goal: Den Blick vom Repository auf das lenken, was beim Besucher ankommt
+    # TODO Expert:in: Vorschlag aus Aufgabe 1. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Lea hat dafür gesorgt, dass der Key nicht mehr im Repository steht. Welche Dateien bekommt aber jemand, der ihre fertige Seite im Browser öffnet?"
+    forbidden: ["öffentlich", "sichtbar", "lesbar", "DevTools", "Quelltext", "Build-Output", "ausgeliefert", "Klartext", "secret.js", "Proxy", "Backend", "Server", "Serverless", "stehlen", "missbrauchen"]
   2:
-    goal: Auf die Anfrage an den Wetterdienst eingrenzen
-    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
-    hint: "Öffne die Entwicklertools im Tab «Netzwerk» und lade die Seite neu. Was steht alles in der Anfrage an den Wetterdienst?"
-    forbidden: ["API-Key", "API key", "Key", "Schlüssel", "secret", "appid"]
+    goal: Den Weg des Keys durch den Workflow verfolgen lassen
+    # TODO Expert:in: Vorschlag aus Aufgabe 1. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Geh den Workflow Schritt für Schritt durch: Wohin schreibt der Schritt 'Inject API Key' den Key, und welche Dateien lädt der Schritt 'Upload artifact' danach auf GitHub Pages hoch?"
+    forbidden: ["öffentlich", "lesbar", "DevTools", "Klartext", "Proxy", "Backend", "Server", "Serverless", "stehlen", "missbrauchen"]
   3:
-    goal: Konkretes Missbrauchsszenario
-    # TODO Expert:in: Vorschlag. Der finale Hint kommt von der Fachperson (Gold Standard).
-    hint: "Angenommen, jemand kopiert alles, was in dieser Anfrage steht. Was kann die Person damit tun, und wer bezahlt dafür?"
-    forbidden: []
+    goal: Übertragung über eine Analogie, die Person verbindet sie selbst mit dem Code
+    # TODO Expert:in: Vorschlag aus Aufgabe 1. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Du bewahrst deinen Hausschlüssel in einem Tresor auf. Bevor Gäste kommen, legst du ihn unter die Fussmatte, damit sie selbst aufschliessen können. Wie gut schützt der Tresor den Schlüssel jetzt noch, und wer ausser deinen Gästen könnte unter die Matte schauen?"
+    # Den Fix nicht vorwegnehmen.
+    forbidden: ["Proxy", "Serverless"]
 
+# Nach dem Abschluss: Folge persönlich machen ("Stell dir vor, du bekommst
+# Monate nach der Abgabe eine E-Mail, dass dein Limit überschritten ist, für
+# Anfragen, die nie über deine Seite liefen."). Abschlussfrage, noch ohne Feld:
+# "Eine aktuelle KI hat denselben Auftrag umgesetzt und erst danach gewarnt:
+# 'Für echte Produktionssicherheit sollte daher ein Backend mit Server-Proxy
+# verwendet werden.' Ist Leas Portfolio mit dem Link in ihren Bewerbungen ein
+# Lernprojekt oder Produktion?" (Copilot-Tests 06.11. und 20.11.2026: 3 von 3
+# erkannt, im Umsetzungslauf erst nach der Umsetzung gewarnt.)
 close:
   fix: >
-    Den Aufruf in eine Server-Route verschieben (z. B. eine Serverless-Funktion
-    /api/wetter) und den Key dort aus einer Umgebungsvariable lesen. Die Seite
-    ruft nur noch die eigene Route auf. Den bereits veröffentlichten Key beim
-    Anbieter ersetzen und ein Kontingent setzen.
-  pruefmuster: "Vor dem Veröffentlichen: Was in diesem Code landet im Browser, und dürfen das alle sehen?"
+    Der Key darf den Browser nie erreichen. Ein kleiner Proxy, zum Beispiel
+    ein Cloudflare Worker oder eine Serverless Function, nimmt die Anfrage der
+    Seite entgegen und ruft die API mit dem Key auf, der nur dort als Secret
+    liegt. Die Seite bleibt auf GitHub Pages und ruft nur den Proxy auf. Den
+    Proxy begrenzen: Modell, max_tokens und Systemprompt fest im Proxy,
+    Längenlimit für Eingaben, Rate-Limit pro IP, sonst wird er selbst zum
+    offenen Zugang. Zusätzlich beim Anbieter ein tiefes Ausgabenlimit setzen
+    und den Key löschen, sobald die Seite nicht mehr gebraucht wird.
+  pruefmuster: "Wer braucht das Geheimnis zur Laufzeit: der Build, ein Server oder der Browser? Was der Browser braucht, kann jede Person lesen. Dann gehört es nicht in den Browser, sondern hinter einen Server."
+  # Erst nach dem Erkennen und nur, wenn die Person keinen eigenen Fix findet. Wahl begründen lassen.
+  fix_choices:
+    - text: "Einen kleinen Proxy dazwischen schalten: Der Key liegt nur dort, die Seite ruft den Proxy auf"
+      verdict: correct
+      reason: "Der Key erreicht den Browser nie. Den Proxy trotzdem begrenzen, sonst wird er selbst zum offenen Zugang."
+    - text: "Ein tiefes Ausgabenlimit setzen und den Key nach der Benotung löschen"
+      verdict: partial
+      reason: "Begrenzt Schaden und Dauer, verhindert aber nicht, dass jemand den Key liest und benutzt."
+    - text: "Den Key im Code verschleiern, etwa mit Base64 oder in Teile zerlegt"
+      verdict: wrong
+      reason: "Der Browser muss ihn wieder zusammensetzen. In der Anfrage im Network-Tab steht er im Klartext."
+    - text: "secret.js umbenennen und nicht in index.html verlinken, sondern per Skript nachladen"
+      verdict: wrong
+      reason: "Der Browser lädt die Datei trotzdem. Sie erscheint im Network-Tab."
+    - text: "Den Key auf die eigene Domain beschränken (CORS)"
+      verdict: wrong
+      reason: "Die API prüft nicht, woher der Key kommt. CORS hält nur Browser auf, Skripte setzen Header frei."
+
+# Der Grader gibt die id als "misconception" zurück. Die Reaktion greift die Annahme auf, statt sie als falsch zu markieren.
+# TODO Expert:in: Reaktionen aus Aufgabe 1, noch nicht von der Fachperson geprüft.
+misconceptions:
+  - id: secrets-schuetzen
+    belief: "Der Key liegt in GitHub Secrets, also ist er geschützt."
+    reaction: "Im Repository liegt er tatsächlich nicht, das hat Lea richtig gelöst. Was macht der Workflow aber beim Build mit dem Wert aus dem Secret, und wo landet die Datei danach?"
+  - id: gitignore-schuetzt
+    belief: "secret.js steht in .gitignore, also kommt niemand an die Datei."
+    reaction: ".gitignore hält die Datei aus dem Repository, das stimmt. Gilt das auch für die Datei, die der Workflow beim Build neu erstellt und hochlädt?"
+  - id: ki-bestaetigt
+    belief: "Die KI hat gesagt, das sei die saubere Lösung."
+    reaction: "Lies den Satz der KI nochmals genau: 'nur in den Build-Output'. Wer bekommt den Build-Output zu sehen?"
+  - id: kurs-vorgabe
+    belief: "So steht es in der Anleitung des Kurses, also ist es richtig."
+    reaction: "Die Anleitung löst ein echtes Problem: Der Key soll nicht im Repository stehen. Prüf trotzdem selbst: Wo liegt der Key, wenn die Seite im Browser eines Besuchers läuft?"
+  - id: niemand-findet
+    belief: "Niemand kennt meine Seite, niemand sucht dort nach einem Key."
+    reaction: "Wo steht der Pfad zu secret.js, und wer kann ihn lesen? Wie lange ist die Seite online, wenn der Link in Bewerbungen steht?"
+  - id: nur-meine-seite
+    belief: "Der Key funktioniert nur von meiner Seite aus."
+    reaction: "Braucht jemand Leas Seite, um mit dem Key eine Anfrage an die API zu schicken?"
+  - id: limit-reicht
+    belief: "Ich setze ein Ausgabenlimit, dann ist es sicher."
+    reaction: "Ein Limit begrenzt den Schaden, gut. Verhindert es, dass jemand den Key benutzt?"

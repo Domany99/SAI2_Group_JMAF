@@ -1,6 +1,7 @@
 id: xss-projektsuche
 title: Suchbegriff aus dem Link per innerHTML in der Projektsuche
 version: 1
+order: 3
 decoy: false
 
 scenario:
