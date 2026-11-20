@@ -73,7 +73,22 @@ def test_v1_covers_issue_requirements(role: str, required: list[str]) -> None:
     assert not missing
 
 
-ALL_PROMPTS = [("tutor", 1), ("grader", 1), ("grader", 2)]
+ALL_PROMPTS = [("tutor", 1), ("grader", 1), ("grader", 2), ("tutor_strict", 1)]
+
+
+def test_tutor_strict_v1_has_no_placeholders() -> None:
+    # Wird unverändert an den Tutor-Prompt angehängt.
+    template = load_prompt("tutor_strict", 1)
+    assert template.placeholders == frozenset()
+    assert template.version == "tutor_strict_v1"
+
+
+def test_tutor_strict_is_not_a_tutor_version(tmp_path: Path) -> None:
+    # tutor_strict_v1.md darf nicht als Tutor-Version zählen.
+    for name in ["tutor_v1.md", "tutor_strict_v1.md", "tutor_strict_v2.md"]:
+        write(tmp_path, name, "x")
+    assert available_versions("tutor", tmp_path) == [1]
+    assert available_versions("tutor_strict", tmp_path) == [1, 2]
 
 
 @pytest.mark.parametrize(("role", "number"), ALL_PROMPTS)
@@ -194,7 +209,7 @@ def test_empty_file(tmp_path: Path) -> None:
         load_prompt("tutor", 1, tmp_path)
 
 
-@pytest.mark.parametrize("role", ["student", "hint", "Tutor", ""])
+@pytest.mark.parametrize("role", ["student", "hint", "Tutor", "", "strict"])
 def test_unknown_role(tmp_path: Path, role: str) -> None:
     with pytest.raises(PromptError, match="Rolle"):
         load_prompt(role, 1, tmp_path)

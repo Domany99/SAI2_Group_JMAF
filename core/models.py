@@ -231,6 +231,10 @@ Hook = Literal["incident", "none"]
 #   schema_violation  Objekt, aber verdict/evidence/misconception ungültig
 #   quote_not_found   recognized ohne echtes Zitat aus der Antwort, herabgestuft
 GraderError = Literal["empty_output", "invalid_json", "not_an_object", "schema_violation", "quote_not_found"]
+# Warum ein hint-Turn statt einer Tutor-Frage gezeigt wurde (core.leak_guard):
+#   guard      zweiter Guard-Treffer
+#   llm_error  Tutor hat nicht geantwortet (Proxy, Timeout, leere Antwort)
+Fallback = Literal["guard", "llm_error"]
 
 
 class Turn(_Model):
@@ -243,7 +247,8 @@ class Turn(_Model):
     Regeln pro Rolle (`_check_role`):
     - `prompt_version`, `model`, `temperature`, `prompt_hash`, `cache_hit`:
       Pflicht bei tutor und grader, sonst null.
-    - `n_examples`: Pflicht bei tutor, sonst null.
+    - `n_examples`, `attempt`: Pflicht bei tutor, sonst null.
+    - `fallback`: Pflicht bei hint, sonst null.
     - `verdict`: Pflicht bei grader, sonst null. `error` nur bei grader und
       nur zusammen mit partial.
     - `guard_hit`: nur bei tutor.
@@ -266,7 +271,12 @@ class Turn(_Model):
     # Version allein reicht nicht: Die Beispiele ändern sich mit den Übungen.
     prompt_hash: PromptHash | None = None
     n_examples: int | None = Field(default=None, ge=0)  # Few-Shot-Beispiele im Tutor-Prompt
+    # Versuch des Tutors für diese Frage: 1, oder 2 nach einem Guard-Treffer
+    # (mit tutor_strict). Die Leak-Rate zählt nur attempt=1.
+    attempt: int | None = Field(default=None, ge=1, le=2)
     cache_hit: bool | None = None  # Antwort kam aus dem Cache des Proxys
+    # Nur bei hint: warum der Expert:innen-Hint statt einer Tutor-Frage kam.
+    fallback: Fallback | None = None
     error: GraderError | None = None
 
     @field_validator("stage")
@@ -300,10 +310,15 @@ class Turn(_Model):
                 if value is not None:
                     violations.append(Violation(name, f"nur bei tutor und grader erlaubt, nicht bei {self.role}"))
 
-        if self.role == "tutor" and self.n_examples is None:
-            violations.append(Violation("n_examples", "Pflicht bei role=tutor"))
-        if self.role != "tutor" and self.n_examples is not None:
-            violations.append(Violation("n_examples", "nur bei role=tutor erlaubt"))
+        for name, value in (("n_examples", self.n_examples), ("attempt", self.attempt)):
+            if self.role == "tutor" and value is None:
+                violations.append(Violation(name, "Pflicht bei role=tutor"))
+            if self.role != "tutor" and value is not None:
+                violations.append(Violation(name, "nur bei role=tutor erlaubt"))
+        if self.role == "hint" and self.fallback is None:
+            violations.append(Violation("fallback", "Pflicht bei role=hint"))
+        if self.role != "hint" and self.fallback is not None:
+            violations.append(Violation("fallback", "nur bei role=hint erlaubt"))
         if self.role == "grader" and self.verdict is None:
             violations.append(Violation("verdict", "Pflicht bei role=grader"))
         if self.role != "grader" and self.verdict is not None:

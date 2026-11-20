@@ -44,7 +44,9 @@ class TutorQuestion:
     """Frage für die Person plus alles, was ins Log gehört (`Turn` mit role=tutor).
 
     `prompt_hash` ist der SHA-256 des fertig eingesetzten System-Prompts,
-    `n_examples` die Zahl der Few-Shot-Beispiele darin.
+    `n_examples` die Zahl der Few-Shot-Beispiele darin. `strict_version` ist
+    gesetzt (z. B. 'tutor_strict_v1'), wenn die strengere Anweisung für den
+    zweiten Versuch angehängt war.
     """
 
     text: str
@@ -60,6 +62,7 @@ class TutorQuestion:
     prompt_hash: str
     n_examples: int
     cache_hit: bool
+    strict_version: str | None = None
     warnings: tuple[str, ...] = ()
 
 
@@ -88,10 +91,12 @@ def build_messages(
     prior_knowledge: PriorKnowledge,
     exercises: Mapping[str, Exercise],
     previous_answer: str | None = None,
+    strict: PromptTemplate | None = None,
 ) -> tuple[list[Message], int]:
     """System-Prompt aus der Vorlage und eine User-Nachricht, plus Zahl der Beispiele.
 
     Die Antwort der Person geht nie in die Vorlage, nur in die User-Nachricht.
+    Mit `strict` wird die strengere Anweisung an den System-Prompt angehängt.
     """
     context = exercise.tutor_context(stage)
     examples = few_shot_examples(exercise, stage, exercises)
@@ -104,6 +109,8 @@ def build_messages(
             "examples": "\n".join(f"- «{e}»" for e in examples) or NO_EXAMPLES,
         }
     )
+    if strict is not None:
+        system = f"{system.rstrip()}\n\n{strict.render({}).strip()}\n"
     if previous_answer is not None and previous_answer.strip():
         user = f"{ANSWER_INTRO}\n<<<\n{previous_answer.strip()}\n>>>\n\n{ASK_FOR_QUESTION}"
     else:
@@ -118,7 +125,9 @@ def ask(
     exercises: Mapping[str, Exercise],
     *,
     previous_answer: str | None = None,
+    strict: bool = False,
     prompt_version: int | None = None,
+    strict_version: int | None = None,
     model: str | None = None,
     temperature: float | None = None,
     config: LLMConfig | None = None,
@@ -128,7 +137,9 @@ def ask(
 
     `prompt_version`, `model` und `temperature` überschreiben die Werte aus
     der Config (für das Eval-Grid). `exercises` sind alle geladenen Übungen,
-    daraus kommen die Few-Shot-Beispiele.
+    daraus kommen die Few-Shot-Beispiele. `strict=True` hängt die strengere
+    Anweisung (`tutor_strict_v<n>`) an, für den zweiten Versuch nach einem
+    Guard-Treffer (siehe `core.leak_guard`).
 
     Raises:
         ValueError: unbekannte Stufe oder Einstufung.
@@ -139,7 +150,14 @@ def ask(
     cfg = config or get_config()
     level = parse_level(prior_knowledge)
     template = load_prompt("tutor", cfg.tutor_prompt_version if prompt_version is None else prompt_version)
-    messages, n_examples = build_messages(template, exercise, stage, level, exercises, previous_answer)
+    strict_template = (
+        load_prompt("tutor_strict", cfg.tutor_strict_version if strict_version is None else strict_version)
+        if strict
+        else None
+    )
+    messages, n_examples = build_messages(
+        template, exercise, stage, level, exercises, previous_answer, strict_template
+    )
 
     used_model = model or cfg.tutor_model
     used_temperature = cfg.tutor_temperature if temperature is None else temperature
@@ -163,5 +181,6 @@ def ask(
         prompt_hash=hash_text(messages[0]["content"]),
         n_examples=n_examples,
         cache_hit=result.cache_hit,
+        strict_version=strict_template.version if strict_template else None,
         warnings=tuple(result.warnings) + ((ZERO_SHOT_WARNING,) if n_examples == 0 else ()),
     )

@@ -87,3 +87,24 @@ Anfrage bei der BFH ist nicht nötig.
   Latenz in Lauf 2 geschönt.
 - Ton passt zur Einstufung: `experienced` ein bis zwei Sätze, `new` vier
   bis fünf.
+
+## Lauf 6: Leak-Guard-Ablauf (I-09), 20.11.2026
+
+`scripts/try_tutor.py --guarded`, Stufe 1, die beiden Übungen mit Leaks aus
+Lauf 5, Einstufungen `new` und `basics`, alle `cache_hit=False`.
+
+| Übung / Einstufung | Versuch 1 (`tutor_v1`) | Versuch 2 (`tutor_strict_v1`) | angezeigt |
+|---|---|---|---|
+| `strapi-auth-false` / `new` | Treffer «löschen» (erklärt «Aktionen» mit Beispielen) | sauber | Versuch 2 |
+| `strapi-auth-false` / `basics` | Treffer «delete», «PUT» (zählt HTTP-Methoden auf) | sauber | Versuch 2 |
+| `xss-projektsuche` / `new` | sauber | – | Versuch 1 |
+| `xss-projektsuche` / `basics` | sauber | – | Versuch 1 |
+
+- 2 von 4 ersten Versuchen blockiert, beide zweiten Versuche sauber, kein
+  Fallback auf den Hint. Die zweiten Versuche bleiben sehr nah am Hint der
+  Fachperson (bei `new` fast wörtlich), die Anpassung an das Vorwissen geht
+  dabei weitgehend verloren. Das ist gewollt: Der strengere Zusatz geht den
+  Tonregeln vor.
+- Ein Treffer verdoppelt die Wartezeit (hier 30 bis 35 s statt 15 bis 19 s).
+- Die Leaks entstehen wie in Lauf 5 beim Erklären und Aufzählen
+  (`prompts/v2_candidates.md`, T4 und T5).

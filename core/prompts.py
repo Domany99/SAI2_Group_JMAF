@@ -26,7 +26,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = REPO_ROOT / "prompts"
 FROZEN_FILE = PROMPTS_DIR / "frozen.txt"
-PROMPT_ROLES: tuple[str, ...] = ("tutor", "grader")
+# tutor_strict: Zusatz zum Tutor-Prompt für den zweiten Versuch nach einem
+# Guard-Treffer (core.leak_guard). Wird an den System-Prompt angehängt.
+PROMPT_ROLES: tuple[str, ...] = ("tutor", "grader", "tutor_strict")
 
 _PLACEHOLDER = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
 # Alles, was wie ein Platzhalter beginnt oder endet, aber nicht passt, z. B. {{ Name }} oder {{goal}.

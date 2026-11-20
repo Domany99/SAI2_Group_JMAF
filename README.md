@@ -279,7 +279,36 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Zero-Shot und ist nicht mit den anderen vergleichbar.
 - **Reihenfolge im Log:** zuerst die Felder der Spezifikation, danach die
   Ergänzungen `prior_knowledge`, `hook`, `prompt_hash`, `n_examples`,
-  `cache_hit`, `error`.
+  `attempt`, `cache_hit`, `fallback`, `error`.
+- **Leak-Guard-Ablauf in `core/leak_guard.py`:** nicht in `core/guard.py`,
+  weil `core/models.py` von dort importiert und der Ablauf `core/tutor.py`
+  braucht (Import-Kreis). `guard.py` behält `normalize()` und
+  `find_forbidden()`, der Ablauf nutzt genau diese.
+- **Zweiter Versuch ohne Wortliste:** Nach dem ersten Treffer erfährt der
+  Tutor nicht, welche Wörter getroffen wurden, und sieht seine blockierte
+  Frage nicht. Sonst lernte er einen Teil der forbidden-Liste kennen und
+  wiche auf Synonyme aus, die der Guard nicht kennt. Stattdessen hängt
+  `tutor.ask(strict=True)` die allgemein strengere Anweisung
+  `prompts/tutor_strict_v<n>.md` an den System-Prompt (`TUTOR_STRICT_VERSION`,
+  Default 1). Sie geht den Tonregeln vor.
+- **`Turn.attempt`:** 1 oder 2, Pflicht bei `tutor`. Die Leak-Rate für Step 4
+  ist der Anteil blockierter Versuche mit `attempt=1`. Ohne das Feld liesse
+  sich ein zweiter Versuch nur über die Reihenfolge der Zeilen erkennen.
+- **Blockierte Fragen im Log:** Auch der Text blockierter Versuche wird
+  geloggt (`guard_hit=true`), die Person sieht ihn nie. Er ist Material für
+  die Auswertung der Leaks.
+- **Fallback bei Ausfall des Tutors:** Antwortet der Tutor nicht
+  (`LLMError`, auch `TutorError` bei leerer Antwort), zeigt der Ablauf den
+  Expert:innen-Hint wie nach dem zweiten Treffer. Ein Treffer im ersten
+  Versuch bleibt dabei im Log. Fehler in Übung, Stufe oder Prompt-Vorlage
+  gehen dagegen weiter, das sind Programmfehler.
+- **`Turn.fallback`:** Pflicht bei `hint`, `guard` (zweiter Treffer) oder
+  `llm_error` (Tutor hat nicht geantwortet), damit sich die beiden Gründe
+  im Log trennen lassen.
+- **Turns bauen, nicht schreiben:** `GuardedQuestion.turns(session, hook,
+  ts)` gibt die Turns zurück, schreiben muss sie der Aufrufer
+  (`core.logging.write_turn`, ab I-10 in der UI). So bleibt der Ablauf ohne
+  Dateizugriff testbar.
 - **Probeskripte:** `scripts/try_prompts.py` (eingesetzte Prompts anzeigen,
   ohne LLM), `scripts/try_tutor.py` und `scripts/try_grader.py`
   (Plausibilitätschecks gegen den Proxy). Sie lesen die Config aus `.env`
