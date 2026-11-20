@@ -1,0 +1,12 @@
+# Theme passend zum Low-Fi-Prototyp "Mind the Gap".
+# Feinheiten (Header, Warnstreifen, Buttons) stehen als CSS in app/main.py.
+[theme]
+base = "light"
+primaryColor = "#0b1726"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f3f4f6"
+textColor = "#0b1726"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"

@@ -3,8 +3,9 @@ Repo for SAI2 Group Project
 
 Prototyp eines Security-Tutors: Er führt Studierende mit gestuften Fragen zu
 einer unsicheren Entscheidung in KI-generiertem Webcode, ohne sie zu nennen.
-Die Spezifikation steht in [development.md](development.md). Umgesetzt ist
-bisher Arbeitsschritt 1: das Übungsformat und zwei Übungsentwürfe.
+Die Spezifikation steht in [development.md](development.md). Umgesetzt sind
+bisher Arbeitsschritt 1 (Übungsformat und zwei Übungsentwürfe) und
+Arbeitsschritt 2 (Stufen-Logik und Streamlit-UI mit fixen Fragen, ohne LLM).
 
 ## Setup
 
@@ -17,6 +18,35 @@ pip install -r requirements.txt
 cp .env.example .env               # wird erst ab Schritt 3 (LLM) gebraucht
 ```
 
+## App starten
+
+Im Repo-Hauptordner, mit aktivierter `.venv`:
+
+```bash
+streamlit run app/main.py
+```
+
+Die App öffnet sich im Browser (standardmässig http://localhost:8501).
+Ablauf: Vorwissen einstufen (Pflicht vor der ersten Übung), Übung wählen,
+Szenario lesen (Kursauftrag, KI-Chat, Code), die Fragen der Stufen 1 bis 3
+beantworten, Abschluss mit Fix und Prüfmuster.
+
+In Schritt 2 gibt es noch kein LLM:
+
+- Die Fragen sind die `hint`s aus den Übungsdateien.
+- Jede Antwort beurteilt die **Testleitung** per Knopf (Erkannt, Teilweise,
+  Nicht erkannt). Diese Knöpfe ersetzt in Schritt 3 LLM 2.
+- Mit `HOOK=incident streamlit run app/main.py` erscheint vor Stufe 1 der
+  Vorfall-Hook (Stufe 0), sofern die Übung ein Feld `hook` hat. Standard ist
+  `HOOK=none`.
+
+Neue oder geänderte Dateien in `exercises/` erscheinen nach einem Neustart der
+App automatisch.
+
+Das Aussehen folgt dem Low-Fi-Prototyp „Mind the Gap“ (Navy, Gelb,
+Warnstreifen). Das Theme steht in `.streamlit/config.toml`, die übrigen
+Styles als CSS oben in `app/main.py`.
+
 ## Tests
 
 ```bash
@@ -25,7 +55,9 @@ pytest
 
 Die Tests prüfen jede Validierungsregel (gültiger und ungültiger Fall), die
 Normalisierung des Leak Guards, dass `tutor_context()` weder `answer_key` noch
-`close` enthält, und dass alle Dateien in `exercises/` fehlerfrei laden.
+`close` enthält, dass alle Dateien in `exercises/` fehlerfrei laden und jeden
+Übergang der Stufen-Logik, inklusive der Garantie, dass die Lücke erst nach
+Stufe 3 aufgelöst wird.
 
 ## Neue Übung anlegen
 
@@ -86,3 +118,26 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **`model` in `LLMResult`:** der angefragte Modellname aus der Config, nicht
   der Name, den der Proxy zurückgibt. So bleiben die Logs über Läufe hinweg
   vergleichbar.
+- **Stufen-Logik:** `core/stages.py` hält den Zustand als unveränderliches
+  `StageState` (Stufe 0 bis 3 und `outcome`). Jeder Übergang gibt einen neuen
+  Zustand zurück. Ungültige Übergänge (Urteil in Stufe 0, Urteil nach dem
+  Abschluss, unbekanntes Urteil) sind Fehler (`StageError`), keine stillen
+  Sonderfälle.
+- **Urteile:** `Verdict` hat die Werte `recognized`, `partial` und `not`, also
+  dieselben wie die Grader-Ausgabe. `on_verdict()` nimmt auch die Strings
+  direkt an. Ungültige Grader-Ausgaben werden ab Schritt 3 vorher zu
+  `partial`, nicht in der Stufen-Logik.
+- **Abschluss:** `outcome` ist `recognized` (selbst gefunden) oder `revealed`
+  (nach Stufe 3 aufgelöst). Die Stufe bleibt erhalten, so ist sichtbar, auf
+  welcher Stufe die Lücke gefunden wurde (Messgrösse für Step 4).
+- **Testleitung statt Grader:** In Schritt 2 bewertet eine Person die
+  Antworten in der UI. Die Knöpfe nutzen dieselben drei Urteile wie LLM 2,
+  damit die Testläufe mit den späteren Grader-Läufen vergleichbar sind.
+- **Einstufung:** Vor der ersten Übung schätzen Studierende ihr Vorwissen
+  selbst ein (`core/prior_knowledge.py`: neu, Grundlagen, erfahren). Ohne
+  Einstufung startet keine Übung. In Schritt 2 wird die Stufe nur angezeigt
+  und pro Antwort mitgeführt. Ab Schritt 3 geht sie in den Tutor-Kontext und
+  in die Logs (Segmentvergleich, H11).
+- **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
+  Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
+  `import core` funktioniert, auch auf Streamlit Community Cloud.
