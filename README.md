@@ -31,14 +31,24 @@ Ablauf: Vorwissen einstufen (Pflicht vor der ersten Übung), Übung wählen,
 Szenario lesen (Kursauftrag, KI-Chat, Code), die Fragen der Stufen 1 bis 3
 beantworten, Abschluss mit Fix und Prüfmuster.
 
-In Schritt 2 gibt es noch kein LLM:
+Zwei Modi über die Variable `MODE` (in `.env` oder als Umgebungsvariable):
 
-- Die Fragen sind die `hint`s aus den Übungsdateien.
-- Jede Antwort beurteilt die **Testleitung** per Knopf (Erkannt, Teilweise,
-  Nicht erkannt). Diese Knöpfe ersetzt in Schritt 3 LLM 2.
-- Mit `HOOK=incident streamlit run app/main.py` erscheint vor Stufe 1 der
-  Vorfall-Hook (Stufe 0), sofern die Übung ein Feld `hook` hat. Standard ist
-  `HOOK=none`.
+- **`MODE=llm` (Standard):** Die Frage jeder Stufe formuliert der Tutor
+  (LLM 1) über den Leak Guard, die Antwort bewertet der Grader (LLM 2).
+  Jeder Turn (Tutor, Antwort, Grader, Hint-Fallback) wird nach
+  `logs/<YYYY-MM-DD>.jsonl` geloggt. Braucht eine gültige `.env` mit
+  API-Key und ausserhalb des BFH-Netzes VPN. Eine Frage dauert 15 bis 40 s,
+  während der Wartezeit zeigt die App einen Ladehinweis.
+- **`MODE=fixed`:** Schritt 2, für Tests und als Notfall. Die Fragen sind die
+  `hint`s aus den Übungsdateien, jede Antwort beurteilt die **Testleitung**
+  per Knopf (Erkannt, Teilweise, Nicht erkannt). Kein LLM, kein Log.
+
+```bash
+MODE=fixed streamlit run app/main.py      # PowerShell: $env:MODE="fixed"; streamlit run app/main.py
+```
+
+Mit `HOOK=incident` erscheint vor Stufe 1 der Vorfall-Hook (Stufe 0), sofern
+die Übung ein Feld `hook` hat. Standard ist `HOOK=none`.
 
 Neue oder geänderte Dateien in `exercises/` erscheinen nach einem Neustart der
 App automatisch.
@@ -309,6 +319,34 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   ts)` gibt die Turns zurück, schreiben muss sie der Aufrufer
   (`core.logging.write_turn`, ab I-10 in der UI). So bleibt der Ablauf ohne
   Dateizugriff testbar.
+- **Ablauf ausserhalb der UI:** `core/session.py` holt Fragen
+  (`ask_question`), loggt Antworten (`log_answer`) und lässt bewerten
+  (`grade_answer`). `app/main.py` zeigt nur an. So ist der Ablauf ohne
+  Streamlit testbar, und jeder Turn wird an genau einer Stelle geloggt.
+- **`MODE=llm|fixed`:** Standard ist `llm`, der eigentliche Prototyp. Fehlt
+  die LLM-Konfiguration, zeigt die App eine Meldung mit dem Hinweis auf
+  `MODE=fixed`. Nur `MODE=llm` loggt: Im fixen Modus passt `Turn` nicht (eine
+  fixe Frage ist kein tutor-Turn, das Urteil der Testleitung kein
+  grader-Turn), und die Logs sollen nur vergleichbare Daten enthalten.
+- **`.env` in der App:** `app/main.py` lädt `.env` beim Start, damit auch
+  `MODE` und `HOOK` dort stehen dürfen. Vorher wirkte `HOOK` nur als echte
+  Umgebungsvariable.
+- **Eine Frage pro Stufe:** Die Frage wird einmal pro Stufe erzeugt und in
+  der Sitzung gemerkt, Reruns von Streamlit erzeugen keine neue. Ab Stufe 2
+  bekommt der Tutor die letzte Antwort.
+- **Grader antwortet nicht:** Die Antwort bleibt stehen, die Stufe ändert
+  sich nicht. Die App zeigt eine verständliche Meldung (Details aufklappbar)
+  und den Knopf «Erneut auswerten», ohne automatischen neuen Versuch. Die
+  Antwort wird nur einmal geloggt (beim Absenden), der grader-Turn erst bei
+  Erfolg.
+- **Tutor antwortet nicht:** Der Leak Guard zeigt den Expert:innen-Hint
+  (`fallback=llm_error`). Die App sagt dazu in einer Zeile, dass die Frage
+  direkt von der Fachperson stammt.
+- **Sitzung:** pro Browser-Sitzung eine zufällige ID (`s-` plus 8 Hex), sie
+  bleibt beim Wechsel der Übung gleich. `hook` im Log ist der Arm aus `HOOK`.
+- **App-Tests:** `tests/test_app.py` spielt die App mit Streamlits
+  `AppTest` durch (LLM gemockt, Log in `tmp_path`). `streamlit` ist schon
+  eine Abhängigkeit.
 - **Probeskripte:** `scripts/try_prompts.py` (eingesetzte Prompts anzeigen,
   ohne LLM), `scripts/try_tutor.py` und `scripts/try_grader.py`
   (Plausibilitätschecks gegen den Proxy). Sie lesen die Config aus `.env`

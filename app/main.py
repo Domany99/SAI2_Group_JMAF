@@ -1,12 +1,19 @@
-"""Streamlit-UI für Schritt 2: fixe Fragen, ohne LLM.
+"""Streamlit-UI des Security-Tutors.
 
 Start im Repo-Hauptordner:
 
     streamlit run app/main.py
 
-Die Fragen sind die Expert:innen-Hints aus den Übungsdateien. Die Antworten
-bewertet die Testleitung per Knopf. In Schritt 3 ersetzt LLM 1 die fixen
-Fragen und LLM 2 die Knöpfe. Die Stufen-Logik bleibt dieselbe.
+Zwei Modi, Umgebungsvariable `MODE` (auch in `.env`):
+
+- `MODE=llm` (Standard): Die Frage jeder Stufe kommt von LLM 1 über den Leak
+  Guard, die Antwort bewertet LLM 2. Jeder Turn wird nach `logs/` geloggt.
+  Der Ablauf steht in `core/session.py`, hier nur Anzeige, Ladezustand und
+  Fehlermeldungen. Braucht eine gültige `.env` (API-Key) und VPN.
+- `MODE=fixed`: Schritt 2, für Tests und als Notfall. Die Fragen sind die
+  Expert:innen-Hints, die Testleitung bewertet per Knopf. Kein LLM, kein Log.
+
+Die Stufen-Logik (`core/stages.py`) ist in beiden Modi dieselbe.
 
 Umgebungsvariable HOOK=incident zeigt Stufe 0 (Vorfall-Hook), falls die Übung
 einen `hook` hat. Standard ist HOOK=none.
@@ -30,13 +37,28 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import streamlit as st  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
+from core import logging as turn_log  # noqa: E402
+from core import session  # noqa: E402
+from core.config import ConfigError  # noqa: E402
 from core.exercises import load_all  # noqa: E402
+from core.llm import LLMError, get_config  # noqa: E402
 from core.models import Exercise  # noqa: E402
 from core.prior_knowledge import LEVELS, PriorKnowledge  # noqa: E402
 from core.stages import LAST_STAGE, Outcome, Verdict, finish_hook, on_verdict, start  # noqa: E402
 
-HOOK_ENABLED = os.environ.get("HOOK", "none").strip().lower() == "incident"
+# MODE und HOOK dürfen auch in .env stehen. Echte Umgebungsvariablen haben Vorrang.
+load_dotenv(REPO_ROOT / ".env", override=False)
+
+MODES = ("llm", "fixed")
+MODE_LABELS = {
+    "llm": "Prototyp · Schritt 3 · Tutor und Grader mit LLM",
+    "fixed": "Prototyp · Schritt 2 · fixe Fragen, ohne LLM",
+}
+MODE = os.environ.get("MODE", "llm").strip().lower()
+HOOK = "incident" if os.environ.get("HOOK", "none").strip().lower() == "incident" else "none"
+HOOK_ENABLED = HOOK == "incident"
 
 VERDICT_BUTTONS = [
     (Verdict.RECOGNIZED, "Erkannt"),
@@ -253,16 +275,21 @@ def esc(text: str) -> str:
 # --- Sitzungszustand -------------------------------------------------------
 
 
+EXERCISE_KEYS = ("exercise_id", "state", "history", "pending", "question", "grade_error")
+
+
 def begin(exercise_id: str) -> None:
     exercise = get_exercises()[exercise_id]
     st.session_state.exercise_id = exercise_id
     st.session_state.state = start(with_hook=HOOK_ENABLED and exercise.hook is not None)
     st.session_state.history = []  # pro Antwort: Stufe, Frage, Antwort, Urteil
     st.session_state.pending = None  # Antwort, die noch bewertet werden muss
+    st.session_state.question = None  # nur MODE=llm: GuardedQuestion der aktuellen Stufe
+    st.session_state.grade_error = None  # nur MODE=llm: Meldung, wenn der Grader nicht antwortet
 
 
 def back_to_selection() -> None:
-    for key in ("exercise_id", "state", "history", "pending"):
+    for key in EXERCISE_KEYS:
         st.session_state.pop(key, None)
 
 
@@ -271,26 +298,86 @@ def submit_answer() -> None:
     if answer:
         st.session_state.pending = answer
         st.session_state.answer_input = ""
+        if MODE == "llm":
+            # Einmal pro Antwort loggen, auch wenn die Bewertung wiederholt werden muss.
+            exercise = get_exercises()[st.session_state.exercise_id]
+            session.log_answer(session_context(), exercise, st.session_state.state.stage, answer)
 
 
 def judge(verdict: Verdict) -> None:
+    """MODE=fixed: Die Testleitung bewertet per Knopf."""
     exercise = get_exercises()[st.session_state.exercise_id]
+    record(exercise, verdict, exercise.stages[st.session_state.state.stage].hint)
+
+
+def leave_hook() -> None:
+    st.session_state.state = finish_hook(st.session_state.state)
+
+
+# --- LLM-Modus -------------------------------------------------------------
+
+
+def session_context() -> session.SessionContext:
+    """Pseudonyme Sitzung: zufällige ID pro Browser-Sitzung, keine Namen."""
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = turn_log.new_session_id()
+    return session.SessionContext(
+        session=st.session_state.session_id,
+        hook=HOOK,
+        prior_knowledge=st.session_state.level,
+        log_dir=turn_log.LOG_DIR,
+    )
+
+
+def current_question(exercise: Exercise) -> str:
+    """Frage der aktuellen Stufe. Im LLM-Modus einmal pro Stufe erzeugt und gemerkt."""
+    state = st.session_state.state
+    if MODE == "fixed":
+        return exercise.stages[state.stage].hint
+
+    cached = st.session_state.question
+    if cached is None or cached.stage != state.stage:
+        history = st.session_state.history
+        previous = history[-1]["answer"] if history else None
+        with st.spinner("Der Tutor formuliert die nächste Frage …"):
+            cached = session.ask_question(session_context(), exercise, state.stage, get_exercises(), previous)
+        st.session_state.question = cached
+    return cached.text
+
+
+def record(exercise: Exercise, verdict: Verdict, question: str) -> None:
+    """Antwort mit Urteil in den Verlauf übernehmen und zur nächsten Stufe."""
     state = st.session_state.state
     st.session_state.history.append(
         {
             "stage": state.stage,
-            "question": exercise.stages[state.stage].hint,
+            "question": question,
             "answer": st.session_state.pending,
             "verdict": verdict,
-            "level": st.session_state.level,  # für die Logs ab Schritt 3
+            "level": st.session_state.level,
         }
     )
     st.session_state.state = on_verdict(state, verdict)
     st.session_state.pending = None
 
 
-def leave_hook() -> None:
-    st.session_state.state = finish_hook(st.session_state.state)
+def grade_pending(exercise: Exercise, question: str) -> None:
+    """Bewertet die offene Antwort mit LLM 2. Bei einem Fehler bleibt sie stehen."""
+    with st.spinner("Deine Antwort wird ausgewertet …"):
+        try:
+            grading = session.grade_answer(
+                session_context(), exercise, st.session_state.state, st.session_state.pending
+            )
+        except LLMError as exc:
+            st.session_state.grade_error = str(exc)
+            return
+    record(exercise, grading.result.verdict, question)  # gleicher Übergang wie grading.state
+    st.session_state.grade_error = None
+    st.rerun()
+
+
+def retry_grading() -> None:
+    st.session_state.grade_error = None
 
 
 # --- Bausteine -------------------------------------------------------------
@@ -400,9 +487,9 @@ def show_selection(exercises: dict[str, Exercise]) -> None:
     _, right = st.columns([5, 1])
     right.button("Einstufung ändern", on_click=change_level, key="change_level", use_container_width=True)
     st.markdown(
-        """
+        f"""
         <div class="mtg-hero">
-          <span class="mtg-label">Prototyp · Schritt 2 · fixe Fragen, ohne LLM</span>
+          <span class="mtg-label">{esc(MODE_LABELS[MODE])}</span>
           <h1>Findest du die unsichere Entscheidung?</h1>
           <p>Jede Übung zeigt einen Kursauftrag, den Chat mit der KI und den Code, den die KI
           geliefert hat. Der Tutor nennt die Lücke nicht. Er stellt dir bis zu drei Fragen,
@@ -486,7 +573,11 @@ def show_tutor(exercise: Exercise) -> None:
     show_history()
 
     if not state.done:
-        st.markdown(f'<div class="mtg-question">{esc(exercise.stages[state.stage].hint)}</div>', unsafe_allow_html=True)
+        question = current_question(exercise)
+        st.markdown(f'<div class="mtg-question">{esc(question)}</div>', unsafe_allow_html=True)
+        cached = st.session_state.get("question")
+        if MODE == "llm" and cached is not None and cached.fallback == "llm_error":
+            st.caption("Der Tutor ist gerade nicht erreichbar. Diese Frage stammt direkt von der Fachperson.")
 
         if st.session_state.pending is None:
             with st.form("answer_form", clear_on_submit=False):
@@ -498,6 +589,21 @@ def show_tutor(exercise: Exercise) -> None:
                 )
                 st.form_submit_button("Antwort senden", type="primary", on_click=submit_answer)
             st.caption("Die Lösung kommt erst nach Stufe 3.")
+        elif MODE == "llm":
+            st.markdown(
+                f'<div class="mtg-history"><span class="mtg-answer">„{esc(st.session_state.pending)}“</span></div>',
+                unsafe_allow_html=True,
+            )
+            if st.session_state.grade_error is None:
+                grade_pending(exercise, question)  # bei Erfolg neuer Durchlauf, sonst ist grade_error gesetzt
+            if st.session_state.grade_error is not None:
+                st.error(
+                    "Deine Antwort konnte gerade nicht ausgewertet werden. Sie ist gespeichert, "
+                    "du musst sie nicht neu schreiben. Versuch es in einem Moment noch einmal."
+                )
+                with st.expander("Technische Details"):
+                    st.code(st.session_state.grade_error, language=None)
+                st.button("Erneut auswerten", type="primary", on_click=retry_grading, key="retry_grading")
         else:
             st.markdown(
                 f'<div class="mtg-history"><span class="mtg-answer">„{esc(st.session_state.pending)}“</span></div>'
@@ -560,6 +666,23 @@ def main() -> None:
         show_header("SECURITY-TUTOR · PROTOTYP")
         st.error("Keine Übungen im Ordner exercises/ gefunden.")
         return
+
+    if MODE not in MODES:
+        show_header("SECURITY-TUTOR · PROTOTYP")
+        st.error(f"Unbekannter Modus MODE={MODE!r}. Erlaubt sind: {', '.join(MODES)}.")
+        return
+
+    if MODE == "llm":
+        try:
+            get_config()
+        except ConfigError as exc:
+            show_header("SECURITY-TUTOR · PROTOTYP")
+            st.error(
+                "Der Tutor kann nicht starten, weil die LLM-Konfiguration fehlt oder ungültig ist.\n\n"
+                f"{exc}\n\n"
+                "Ohne LLM lässt sich die App mit `MODE=fixed` starten (fixe Fragen, Bewertung per Knopf)."
+            )
+            return
 
     # Ohne Einstufung keine Übung: zuerst das Vorwissen erfassen.
     if "level" not in st.session_state:

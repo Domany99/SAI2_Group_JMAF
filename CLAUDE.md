@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Prototype of a security tutor (BFH course SAI2). The tutor leads students to an insecure decision in AI-generated web code through stepwise questions, without naming it. `development.md` is the specification: architecture, exercise format, stage logic, leak guard, logging, evaluation and the "Order of work". **Do not edit `development.md`.** If you find a gap or contradiction in it, list it for the user instead of deciding it yourself. Decisions that fill gaps go in the "Entscheide" section of `README.md`.
 
-Status: steps 1 and 2 of the "Order of work" are largely done (exercise format and validation, stage logic, Streamlit UI with fixed questions and a human judge). Step 3 has begun: the LLM wrapper, the turn logger, the prompts with their loader (`tutor_v1`, `grader_v1`/`v2`), the tutor, the grader and the leak-guard flow exist, but the UI does not use them or log yet. Open work is tracked as GitHub issues at https://github.com/Domany99/SAI2_Group_JMAF/issues (the `I-xx` issues follow the spec's order of work). Check them instead of relying on a status list here.
+Status: steps 1 and 2 of the "Order of work" are largely done (exercise format and validation, stage logic, Streamlit UI). Step 3 is largely done: LLM wrapper, turn logger, prompts (`tutor_v1`, `tutor_strict_v1`, `grader_v1`/`v2`), tutor, grader and leak-guard flow exist, and the UI uses them in `MODE=llm` with full logging. Step 4 (more exercises, evaluation) is open. Open work is tracked as GitHub issues at https://github.com/Domany99/SAI2_Group_JMAF/issues (the `I-xx` issues follow the spec's order of work). Check them instead of relying on a status list here.
 
 ## Commands
 
@@ -14,7 +14,7 @@ Status: steps 1 and 2 of the "Order of work" are largely done (exercise format a
 python -m venv .venv && .venv\Scripts\activate   # Windows; POSIX: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env                              # then set LLM_API_KEY (personal key, never commit)
-streamlit run app/main.py                         # UI; HOOK=incident shows stage 0
+streamlit run app/main.py                         # UI, MODE=llm (default, needs .env) | MODE=fixed; HOOK=incident shows stage 0
 python scripts/smoke_llm.py [--models a,b]        # manual check against the real proxy, not part of pytest
 python scripts/try_prompts.py --exercise <id>     # show rendered prompts, no LLM call
 python scripts/try_tutor.py | try_grader.py       # plausibility runs against the proxy (results: docs/probelaeufe.md)
@@ -44,9 +44,10 @@ The core guarantee is that **the tutor LLM can never reveal the answer**. Severa
 - `core/config.py` loads `.env` into a frozen `LLMConfig` (API key as `SecretStr`; errors name only the variable, never the value).
 - `core/llm.py` is the only place the provider appears. `chat(messages, model, temperature, json_mode)` returns an `LLMResult` (text without `<think>` blocks, tokens, latency, `warnings`, `cache_hit` from the `x-litellm-cache-key` header). It calls the SDK via `with_raw_response` to read headers and sends `extra_body={"cache": {"no-cache": True}}` when `no_cache` is set. It has its own retry/backoff (SDK retries off), a JSON-mode fallback on HTTP 400, and translates provider exceptions into `LLMAuthError` / `LLMRequestError` / `LLMUnavailableError` with the key redacted. Never log or print the key.
 - `core/prior_knowledge.py` holds the students' self-assessment (`new | basics | experienced`). In step 2 it is only shown; from step 3 it goes into the tutor context and the logs.
-- `app/main.py` is the Streamlit UI (design "Mind the Gap", theme in `.streamlit/config.toml`, CSS inline). It currently shows the expert hints as fixed questions, and a test lead judges answers with buttons that map to `Verdict`. In step 3, LLM 1 replaces the fixed questions and LLM 2 the buttons. The stage logic stays the same.
+- `core/session.py` is the LLM-mode flow without UI: `ask_question` (leak guard, logs tutor/hint turns), `log_answer` (student turn, once per answer), `grade_answer` (grader + `on_verdict`, logs the grader turn; raises `LLMError` with nothing logged so the UI can retry). `SessionContext` carries session id, hook arm, prior knowledge and log dir.
+- `app/main.py` is the Streamlit UI (design "Mind the Gap", theme in `.streamlit/config.toml`, CSS inline). It loads `.env` at start (so `MODE`/`HOOK` may live there). `MODE=llm` (default): question per stage from `session.ask_question` (generated once per stage, cached in session state), answers graded by `session.grade_answer`, spinners while waiting, a retry button when the grader fails; a missing config shows an error pointing to `MODE=fixed`. `MODE=fixed`: expert hints as questions and test-lead buttons, no LLM, no logging. The stage logic is the same in both. `tests/test_app.py` drives it with `streamlit.testing.v1.AppTest`; it reads `core.logging.LOG_DIR` at call time so tests can redirect logs.
 
-Still to build (spec, step 3): wiring `leak_guard.ask_guarded`, the grader and the logger into the UI (I-10). `eval/` (step 4) is still empty.
+Not yet in the UI: misconception reactions and `fix_choices`. `eval/` (step 4) is still empty.
 
 ## Exercises (`exercises/*.yaml`)
 
