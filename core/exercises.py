@@ -48,6 +48,8 @@ def _problems_from(path: Path, error: ValidationError) -> list[str]:
         field = ".".join(str(part) for part in detail["loc"]) or FILE_FIELD
         if isinstance(cause, ValueError):
             rule = str(cause)
+        elif detail["type"] == "literal_error":
+            rule = f"erlaubt sind nur {detail['ctx']['expected']}"
         else:
             rule = _RULES_BY_TYPE.get(detail["type"], detail["msg"])
         problems.append(_problem(path, field, rule))

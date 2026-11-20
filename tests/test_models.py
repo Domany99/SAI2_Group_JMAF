@@ -67,3 +67,15 @@ def test_rule_violations_message_lists_all_violations() -> None:
     error = RuleViolations([Violation("stages.1.hint", "Regel A"), Violation("stages", "Regel B")])
     assert str(error) == "stages.1.hint: Regel A; stages: Regel B"
     assert isinstance(error, ValueError)
+
+
+@pytest.mark.parametrize("stage", [1, 2, 3])
+def test_tutor_context_hides_misconceptions_and_fix_choices(valid_data: dict[str, Any], stage: int) -> None:
+    valid_data["misconceptions"] = [{"id": "m", "belief": "GEHEIME-ANNAHME", "reaction": "GEHEIME-REAKTION"}]
+    valid_data["close"]["fix_choices"] = [
+        {"text": "GEHEIME-OPTION-A", "verdict": "correct", "reason": "GEHEIMER-GRUND"},
+        {"text": "GEHEIME-OPTION-B", "verdict": "wrong", "reason": "GEHEIMER-GRUND"},
+    ]
+    flat = repr(Exercise.model_validate(valid_data).tutor_context(stage))
+    for secret in ("GEHEIME-ANNAHME", "GEHEIME-REAKTION", "GEHEIME-OPTION-A", "GEHEIMER-GRUND"):
+        assert secret not in flat

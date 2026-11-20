@@ -84,3 +84,45 @@ close:
     begrenzen (maxLength) und Anfragen per Middleware begrenzen. Getestet am
     17.11.2026: PUT und DELETE ohne Login ergeben 405 statt 200.
   pruefmuster: "Wer darf was, und wo wird es geprüft? Für jede Aktion: alle, Eingeloggte oder nur die Besitzerin? Und steht die Regel dort, wo man sie sieht, in der Rolle im Admin, oder versteckt im Code?"
+  # Erst nach dem Erkennen und nur, wenn die Person keinen eigenen Fix findet. Wahl begründen lassen.
+  fix_choices:
+    - text: "auth: false entfernen und in der Public-Rolle nur create, find und findOne freigeben"
+      verdict: correct
+      reason: "Öffnet nur das Nötige, und die Regel ist im Admin sichtbar und widerrufbar."
+    - text: "auth: false nur bei create stehen lassen"
+      verdict: partial
+      reason: "Funktioniert und öffnet nur das Nötige, die Regel bleibt im Admin aber unsichtbar (Ergebnis von Agent-Lauf 2)."
+    - text: "CORS strenger einstellen"
+      verdict: wrong
+      reason: "CORS hält nur Browser auf, keine Skripte."
+    - text: "Den Löschen-Button im Frontend weglassen"
+      verdict: wrong
+      reason: "Die API bleibt offen, für eine Anfrage braucht man das Frontend nicht."
+    - text: "Der Rolle Authenticated alle Rechte geben"
+      verdict: wrong
+      reason: "Dann kann jede eingeloggte Person fremde Kommentare ändern und löschen. Strapi prüft ohne eigene Policy nicht, wem ein Kommentar gehört."
+
+# Der Grader gibt die id als "misconception" zurück. Die Reaktion greift die Annahme auf, statt sie als falsch zu markieren.
+# TODO Expert:in: Reaktionen aus Aufgabe 2, noch nicht von der Fachperson geprüft.
+misconceptions:
+  - id: admin-leer
+    belief: "Im Admin ist bei Public nichts angehakt, also darf niemand etwas."
+    reaction: "Gut, dass du im Admin nachschaust, dort gehören Rechte hin. Die KI hat aber nicht im Admin etwas geändert, sondern in der Route. Was bewirkt auth: false dort? Wird die Rolle dann überhaupt noch gefragt?"
+  - id: oeffentlich-gewollt
+    belief: "Kommentare sollen ja öffentlich sein, das ist so gewollt."
+    reaction: "Erstellen ja, das war Leas Wunsch. Was ist mit Ändern und Löschen: Wer sollte das in einer Kommentarfunktion dürfen?"
+  - id: cors-schuetzt
+    belief: "CORS erlaubt nur localhost:5173, also kommt niemand sonst an die API."
+    reaction: "CORS ist eine Regel, die der Browser einhält. Braucht man einen Browser, um eine Anfrage an die API zu schicken?"
+  - id: id-zufaellig
+    belief: "Man müsste die ID eines Kommentars kennen, die ist zufällig."
+    reaction: "Stimmt, erraten lässt sie sich kaum. Welche der fünf Aktionen liefert dir aber alle Kommentare mitsamt ID?"
+  - id: login-ueberall
+    belief: "Ich würde einfach für alles einen Login verlangen."
+    reaction: "Das wäre sicher, aber Lea will Kommentare ohne Login. Welche Aktionen müssen offen sein, und welche nicht?"
+  - id: ki-hat-behoben
+    belief: "Die KI hat ja gesagt, das Problem sei behoben."
+    reaction: "Der 403 ist weg, das stimmt. Hat die KI dabei auch etwas geändert, nach dem Lea gar nicht gefragt hat?"
+  - id: textpruefung
+    belief: "Man müsste den Kommentartext prüfen, zum Beispiel die Länge und Sonderzeichen."
+    reaction: "Guter Punkt, die Länge solltest du im Backend begrenzen. Angenommen, der Text ist perfekt geprüft: Was kann eine fremde Person mit deinem Kommentar trotzdem noch machen?"

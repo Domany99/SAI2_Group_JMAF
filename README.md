@@ -62,6 +62,17 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   die das Urteil vorwegnehmen (z. B. „sicher“, „unsicher“).
 - **Stufe 0:** Optionales Feld `hook` (Text des echten Vorfalls) auf oberster
   Ebene. Es wird nicht an den Tutor gegeben.
+- **Fehlannahmen:** Optionales Feld `misconceptions` auf oberster Ebene, eine
+  Liste mit `id`, `belief` und `reaction`. Der Grader gibt im Feld
+  `misconception` die `id` zurück, der Code wählt damit die vorbereitete
+  Reaktion. Die `id` ist pro Übung eindeutig. Nicht im Tutor-Kontext.
+- **Fix-Auswahl:** Optionales Feld `close.fix_choices`, eine Liste mit `text`,
+  `verdict` (`correct`, `partial`, `wrong`) und `reason`. Wenn vorhanden,
+  mindestens 2 Optionen und mindestens eine `correct`. Erscheint erst nach dem
+  Erkennen und nur, wenn die Person keinen eigenen Fix findet.
+- **Strapi-Übung:** `strapi-auth-false` ersetzt den Platzhalter
+  `strapi-public-create`. In den Agent-Tests war Public `create` gewollt, die
+  Lücke war `auth: false` in der Route, das auch Ändern und Löschen öffnet.
 - **Ordner:** `eval/results/` ist angelegt, obwohl es im Layout fehlt.
 - **LLM-Anbindung vorgezogen:** `core/llm.py` und `core/config.py` entstehen
   vor Schritt 2 der "Order of work" (UI ohne LLM). Tutor, Grader und Prompts
