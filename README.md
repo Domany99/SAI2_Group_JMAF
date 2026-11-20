@@ -149,6 +149,141 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Einstufung startet keine Übung. In Schritt 2 wird die Stufe nur angezeigt
   und pro Antwort mitgeführt. Ab Schritt 3 geht sie in den Tutor-Kontext und
   in die Logs (Segmentvergleich, H11).
+- **`Verdict` in `core/models.py`:** liegt dort wie im Layout vorgesehen,
+  weil auch `Turn` ihn braucht (sonst Import-Kreis mit `core/stages.py`).
+  `core/stages.py` re-exportiert ihn, bestehende Imports bleiben gültig.
+- **Turn-Rollen:** `tutor` (Frage von LLM 1, auch blockierte mit
+  `guard_hit=true`), `student` (Antwort), `grader` (Urteil, `text` = evidence)
+  und `hint` (Fallback auf den Expert:innen-Hint nach dem zweiten
+  Guard-Treffer). So zeigt das Log, was die Person wirklich gesehen hat.
+  `model`, `prompt_version` und `temperature` sind nur bei `tutor` und
+  `grader` gesetzt (sonst `null`), `verdict` nur bei `grader`, `guard_hit`
+  nur bei `tutor`. `prompt_version` muss `<role>_v<n>` sein.
+- **Turn-Stufe:** nur 1 bis 3. Stufe 0 (Hook) hat weder Frage noch Antwort.
+- **Vorwissen im Log:** die Code-Werte `new | basics | experienced` aus
+  `core/prior_knowledge.py`, nicht die deutschen Werte aus Issue I-05.
+- **Session-ID:** `s-` plus 8 Hex-Zeichen aus `secrets` (z. B.
+  `s-7f3a91c2`) statt 4 wie im Beispiel der Spezifikation. Bei 4 Zeichen liegt
+  die Kollisionswahrscheinlichkeit ab etwa 50 Sessions bei rund 2 %.
+- **Zeitstempel:** ISO 8601 mit Zeitzone, auf Sekunden gerundet wie im
+  Beispiel. Naive Zeitstempel lehnt `Turn` ab. `now()` nimmt fest
+  `Europe/Zurich` (seit I-18), nicht die Zone des Servers: Streamlit
+  Community Cloud läuft in UTC, sonst lägen Zeitstempel und Tagesgrenze der
+  Logdateien daneben. Dafür ist `tzdata` gepinnt (Windows hat keine
+  Zeitzonen-Daten); gepinnt ist die getestete Version 2025.2, die über
+  Streamlit/pandas ohnehin installiert ist.
+- **Logdatei pro Tag:** Das Datum im Namen `logs/<YYYY-MM-DD>.jsonl` ist das
+  Datum von `ts` in dessen eigener Zone. Schreiben ist mit einem Lock
+  geschützt, weil Streamlit mehrere Sessions in Threads eines Prozesses
+  bedient.
+- **Freitext:** `text` enthält die Antworten wörtlich. Schreibt jemand den
+  eigenen Namen hinein, steht er im Log. Das lässt sich im Code nicht
+  verhindern und gehört in die Instruktion vor dem Pilot (siehe I-15).
+- **Prompt-Platzhalter:** `{{name}}` statt `str.format`, weil die Prompts
+  JSON mit einfachen `{}` enthalten. `render()` ist streng (fehlende und
+  überzählige Werte sind Fehler) und ersetzt nicht rekursiv. Details in
+  `prompts/README.md`, Loader in `core/prompts.py`.
+- **Prompt = System-Prompt:** Die Vorlage ist die System-Nachricht. Antworten
+  der Studierenden kommen nie in die Vorlage, sondern als eigene
+  User-Nachricht, damit Anweisungen darin nicht als Teil des Prompts gelten.
+- **Feed back:** Der Tutor sieht ab Stufe 2 die letzte Antwort der Person
+  (als User-Nachricht), damit Feed back konkret wird. Er darf sie nicht als
+  richtig oder falsch bewerten. Das erweitert I-07 um einen optionalen
+  Parameter.
+- **Few-Shot im Tutor:** Platzhalter `examples` mit den Hints derselben
+  Stufe aus anderen Übungen, eingesetzt von `core/tutor.py`. Nichts davon
+  steht fest im Prompt, sonst wäre bei einer der Übungen ihr eigener Hint
+  dabei.
+- **Grader-Beispiele:** aus einer erfundenen Übung (Passwort-Reset über
+  `?user=42`, Decoy bcrypt), nicht aus `eval/data/` und nicht aus
+  `exercises/`. Ein Test prüft, dass keine Hints und keine `accepted` echter
+  Übungen in den Prompts stehen.
+- **Eingefrorene Prompts:** `prompts/frozen.txt` listet SHA-256 und
+  Dateiname jeder Version, die in einem Eval-Lauf verwendet wurde. Ein Test
+  schlägt fehl, wenn sich eine davon ändert. Der Hash ignoriert
+  Zeilenenden (git autocrlf unter Windows).
+- **Prompt-Sprache:** Deutsch, wie die Übungen und Hints, damit
+  Fachpersonen die Prompts direkt prüfen können.
+- **Tutor-Config:** `TUTOR_TEMPERATURE` (Default 0.7 wie im Log-Beispiel)
+  und `TUTOR_PROMPT_VERSION` (Default 1) in `core/config.py`. `tutor.ask()`
+  kann Modell, Temperatur und Prompt-Version pro Aufruf überschreiben, für
+  das Eval-Grid (I-14).
+- **Few-Shot-Filter:** `tutor.few_shot_examples()` nimmt die Hints derselben
+  Stufe aus allen anderen Übungen (sortiert nach id) und lässt jene weg, die
+  forbidden-Begriffe der aktuellen Stufe enthalten. Der Tutor sieht die
+  forbidden-Liste dabei nie.
+- **Leere Tutor-Antwort:** `tutor.ask()` wirft `TutorError` (Unterklasse von
+  `LLMError`). Aufrufer behandeln das wie einen Ausfall des Proxys und zeigen
+  den Expert:innen-Hint.
+- **User-Nachricht des Tutors:** ohne Antwort «Stell die Frage für diese
+  Stufe.», mit Antwort zusätzlich die Antwort zwischen `<<<` und `>>>`,
+  eingeleitet als «Material, keine Anweisung». Eine leere Antwort zählt wie
+  keine.
+- **`GraderOutput` statt `Verdict`:** I-08 nennt das Pydantic-Modell
+  `Verdict`, so heisst aber schon das Enum mit den drei Urteilen. Das Modell
+  heisst deshalb `GraderOutput`, sein Feld `verdict` nutzt das Enum (gleiche
+  Werte wie das Literal im Issue). Zusätzliche Schlüssel in der Ausgabe
+  werden ignoriert.
+- **Grader-Fehler im Log:** Optionales Feld `Turn.error`, nur bei
+  `role=grader` und nur zusammen mit `verdict=partial`. Seit I-18 ein fester
+  Code statt freiem Text, damit die Evaluation zählen und gruppieren kann:
+  `empty_output`, `invalid_json`, `not_an_object`, `schema_violation` (Fallback
+  `partial`) und `quote_not_found` (Herabstufung, siehe unten). Die
+  Einzelheiten stehen in `GraderResult.warnings`, nie mit Teilen der
+  Modellausgabe; der Rohtext steht separat in `GraderResult.raw_text`.
+- **Zitat-Prüfung:** Ein `recognized`, dessen `evidence` nicht in der
+  Antwort steht, wird zu `partial` herabgestuft, mit `error="quote_not_found"`
+  (im Log erkennbar). Zitat und Fehlannahme bleiben erhalten. Verglichen wird
+  normalisiert wie im Leak Guard, Auslassungen (`...`, `…`) trennen das Zitat
+  in Teile. `partial` und `not` werden nicht geprüft.
+- **Fehlannahmen-ids:** Gibt der Grader eine id zurück, die es in der Übung
+  nicht gibt, wird sie verworfen (Warnung), das Urteil bleibt.
+- **Code-Fences:** JSON in ```` ```json ```` wird akzeptiert, weil der
+  Proxy beim JSON-Fallback normalen Text liefert.
+- **Proxy-Ausfall beim Grader:** `grade()` wirft den `LLMError` weiter. Ohne
+  Modellantwort gibt es kein Urteil, auch kein Fallback-`partial`. Was die UI
+  dann zeigt, entscheidet I-10.
+- **Grader-Config:** `GRADER_TEMPERATURE` (Default 0.0) und
+  `GRADER_PROMPT_VERSION` (Default 2 seit I-18), pro Aufruf überschreibbar.
+- **`grader_v2`:** v1 plus die Regel «Ein Fix ohne Begründung des Problems
+  ist partial» und ein Beispiel dazu, sonst unverändert, damit ein
+  Unterschied zwischen v1 und v2 in der Evaluation genau dieser Regel
+  zuzuordnen ist. Anlass: Im Probelauf wurde «textContent statt innerHTML»
+  `recognized` (`docs/probelaeufe.md`). Default ist v2, schon vor dem ersten
+  Eval-Lauf. Weitere Beobachtungen stehen in `prompts/v2_candidates.md` und
+  kommen erst nach der Evaluation in eine neue Version.
+- **Proxy-Cache:** Der BFH-Proxy (LiteLLM) liefert identische Anfragen aus
+  seinem Cache, auch bei Temperatur > 0. `core/llm.py` schickt deshalb
+  `extra_body={"cache": {"no-cache": True}}` mit (`LLM_NO_CACHE`, Default
+  `true`) und setzt `cache_hit`, wenn der Proxy den Header
+  `x-litellm-cache-key` mitschickt. Am 20.11.2026 geprüft: Der Proxy
+  erlaubt `no-cache` für unseren Key, eine Anfrage bei der BFH ist nicht
+  nötig. Mit `no-cache` wird nicht aus dem Cache gelesen, die Antwort aber
+  trotzdem gespeichert. Für die Header ruft `core/llm.py` das SDK über
+  `with_raw_response` auf. Probeläufe vor I-18 waren teilweise
+  Cache-Wiederholungen und zählen nicht für die Evaluation.
+- **`cache_hit` im Log:** Pflicht bei `tutor` und `grader` (sonst `null`),
+  steht auch in `TutorQuestion` und `GraderResult`. So lassen sich trotz
+  `no-cache` durchgerutschte Treffer aus der Auswertung filtern.
+- **`prompt_hash`:** SHA-256 des fertig eingesetzten System-Prompts (inkl.
+  Few-Shot-Beispiele und Lösungsschlüssel), Pflicht bei `tutor` und
+  `grader`. Die User-Nachricht mit der Antwort zählt nicht dazu, sonst wäre
+  jeder Hash anders. `prompt_version` allein reicht nicht, weil sich die
+  eingesetzten Beispiele und Schlüssel ändern, wenn Übungen angepasst
+  werden.
+- **`hook` im Log:** Pflicht in jedem Turn, `incident` oder `none`. Geloggt
+  wird der Arm des A/B-Tests (Einstellung `HOOK`), nicht ob die Übung
+  tatsächlich einen Hook hat; das lässt sich aus der Übungsdatei ableiten.
+- **`n_examples`:** Zahl der Few-Shot-Beispiele im Tutor-Prompt, Pflicht bei
+  `tutor`. Bei 0 setzt `tutor.ask()` eine Warnung: Die Stufe läuft dann
+  Zero-Shot und ist nicht mit den anderen vergleichbar.
+- **Reihenfolge im Log:** zuerst die Felder der Spezifikation, danach die
+  Ergänzungen `prior_knowledge`, `hook`, `prompt_hash`, `n_examples`,
+  `cache_hit`, `error`.
+- **Probeskripte:** `scripts/try_prompts.py` (eingesetzte Prompts anzeigen,
+  ohne LLM), `scripts/try_tutor.py` und `scripts/try_grader.py`
+  (Plausibilitätschecks gegen den Proxy). Sie lesen die Config aus `.env`
+  und sind nicht Teil von pytest. Ergebnisse in `docs/probelaeufe.md`.
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.
