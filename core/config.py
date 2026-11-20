@@ -38,6 +38,8 @@ class LLMConfig(BaseModel):
     # überschreibt Temperatur und Prompt-Version pro Aufruf.
     tutor_temperature: float = Field(default=0.7, ge=0, le=2)
     tutor_prompt_version: int = Field(default=1, ge=1)
+    # Version von prompts/tutor_strict_v<n>.md für den zweiten Versuch nach einem Guard-Treffer.
+    tutor_strict_version: int = Field(default=1, ge=1)
     # Grader (LLM 2): tiefe Temperatur (Spezifikation), 0 für reproduzierbare Urteile.
     # v2 seit I-18: Ein Fix ohne Begründung ist partial (Probelauf, prompts/README.md).
     grader_temperature: float = Field(default=0.0, ge=0, le=2)
@@ -61,6 +63,7 @@ _ENV_TO_FIELD = {
     "LLM_NO_CACHE": "no_cache",
     "TUTOR_TEMPERATURE": "tutor_temperature",
     "TUTOR_PROMPT_VERSION": "tutor_prompt_version",
+    "TUTOR_STRICT_VERSION": "tutor_strict_version",
     "GRADER_TEMPERATURE": "grader_temperature",
     "GRADER_PROMPT_VERSION": "grader_prompt_version",
 }

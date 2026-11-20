@@ -11,14 +11,20 @@ werden sie mit `core.prompts.load_prompt(role, number)`, zum Beispiel
 |---|---|---|---|
 | `tutor_v1.md` | ja | erste Version | I-06 |
 | `grader_v1.md` | nein | erste Version | I-06 |
+| `tutor_strict_v1.md` | ja | erste Version: Zusatz zum Tutor-Prompt für den zweiten Versuch nach einem Guard-Treffer, ohne Platzhalter | I-09 |
 | `grader_v2.md` | ja | Regel «Ein Fix ohne Begründung des Problems ist partial» und ein passendes Beispiel. Sonst identisch mit v1. | Probelauf 3: «textContent statt innerHTML» wurde fälschlich `recognized` (`docs/probelaeufe.md`, Lauf 3 und 4) |
 
 Beobachtungen für weitere Versionen sammelt `v2_candidates.md`.
 
 ## Regeln
 
-- Dateiname `<role>_v<n>.md`, Rolle `tutor` oder `grader`, `n` ab 1 ohne
-  führende Null.
+- Dateiname `<role>_v<n>.md`, Rolle `tutor`, `grader` oder `tutor_strict`,
+  `n` ab 1 ohne führende Null.
+- `tutor_strict_v<n>.md` wird nach einem Guard-Treffer unverändert an den
+  eingesetzten Tutor-Prompt angehängt (`core.leak_guard`). Es nennt keine
+  getroffenen Wörter. Im Log steht beim zweiten Versuch weiterhin
+  `prompt_version=tutor_v<n>` mit `attempt=2`; der Zusatz ändert den
+  `prompt_hash`. Die Version wählt `TUTOR_STRICT_VERSION`.
 - **Eine Version, die in einem Eval-Lauf verwendet wurde, wird nie mehr
   bearbeitet.** Für Änderungen eine neue Datei `<role>_v<n+1>.md` anlegen.
 - Nach dem ersten Eval-Lauf mit einer Version diese in `frozen.txt`

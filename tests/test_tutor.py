@@ -385,3 +385,35 @@ def test_cache_hit_is_passed_on(
 ) -> None:
     monkeypatch.setattr(tutor, "chat", FakeChat(cache_hit=hit))
     assert ask(exercises, cfg).cache_hit is hit
+
+
+# --- strict (I-09) ----------------------------------------------------------
+
+
+def test_strict_appends_strict_prompt(fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig) -> None:
+    normal = ask(exercises, cfg)
+    normal_system = fake.system
+    strict = ask(exercises, cfg, strict=True)
+
+    from core.prompts import load_prompt
+
+    addition = load_prompt("tutor_strict", 1).text.strip()
+    assert addition not in normal_system
+    assert fake.system == f"{normal_system.rstrip()}\n\n{addition}\n"
+    assert (normal.strict_version, strict.strict_version) == (None, "tutor_strict_v1")
+    assert strict.prompt_version == "tutor_v1"  # die Hauptvorlage bleibt dieselbe
+    assert strict.prompt_hash == hash_text(fake.system) != normal.prompt_hash
+
+
+def test_strict_version_from_config_and_override(
+    fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig
+) -> None:
+    with pytest.raises(PromptError, match="tutor_strict_v5"):
+        ask(exercises, cfg.model_copy(update={"tutor_strict_version": 5}), strict=True)
+    with pytest.raises(PromptError, match="tutor_strict_v7"):
+        ask(exercises, cfg, strict=True, strict_version=7)
+    assert fake.calls == []
+
+
+def test_strict_version_ignored_without_strict(fake: FakeChat, exercises: dict[str, Exercise], cfg: LLMConfig) -> None:
+    assert ask(exercises, cfg, strict_version=99).strict_version is None

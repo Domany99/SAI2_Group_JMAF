@@ -6,6 +6,7 @@ eine ausgefüllte .env. Keys stehen nie im Skript.
 
     python scripts/try_tutor.py
     python scripts/try_tutor.py --exercises xss-projektsuche --stage 2 --answer "Der Begriff kommt aus dem Link."
+    python scripts/try_tutor.py --guarded --exercises strapi-auth-false --levels new
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core import tutor  # noqa: E402
+from core import leak_guard, tutor  # noqa: E402
 from core.config import ConfigError  # noqa: E402
 from core.exercises import load_all  # noqa: E402
 from core.guard import find_forbidden  # noqa: E402
@@ -38,7 +39,10 @@ def main() -> int:
     parser.add_argument("--prompt-version", type=int, default=None)
     parser.add_argument("--model", default=None)
     parser.add_argument("--temperature", type=float, default=None)
+    parser.add_argument("--guarded", action="store_true", help="mit Leak-Guard-Ablauf (Regenerierung, Fallback)")
     args = parser.parse_args()
+    if args.guarded:
+        return _guarded(args)
 
     exercises = load_all(EXERCISES_DIR)
     ids = [i.strip() for i in args.exercises.split(",")] if args.exercises else sorted(exercises)
@@ -72,6 +76,36 @@ def main() -> int:
                 print(f"    Warnung: {w}")
             print(f"{q.text}\n")
     print(f"Guard-Treffer: {leaks}")
+    return 0
+
+
+def _guarded(args: argparse.Namespace) -> int:
+    """Wie oben, aber über core.leak_guard: zeigt alle Versuche und was die Person sähe."""
+    exercises = load_all(EXERCISES_DIR)
+    ids = [i.strip() for i in args.exercises.split(",")] if args.exercises else sorted(exercises)
+    levels = [PriorKnowledge(lv.strip()) for lv in args.levels.split(",")]
+    counts = {"tutor": 0, "guard": 0, "llm_error": 0}
+    for exercise_id in ids:
+        for level in levels:
+            try:
+                g = leak_guard.ask_guarded(
+                    exercises[exercise_id], args.stage, level, exercises,
+                    previous_answer=args.answer, prompt_version=args.prompt_version,
+                    model=args.model, temperature=args.temperature,
+                )  # fmt: skip
+            except ConfigError as exc:
+                print(f"Konfigurationsfehler: {exc}", file=sys.stderr)
+                return 2
+            counts[g.fallback or "tutor"] += 1
+            print(f"--- {exercise_id} | Stufe {args.stage} | {level.value} | Ergebnis: {g.fallback or 'Tutor-Frage'}")
+            for number, a in enumerate(g.attempts, start=1):
+                q = a.question
+                print(f"  Versuch {number} ({q.strict_version or q.prompt_version}, {q.latency_ms} ms, "
+                      f"cache_hit={q.cache_hit}): guard={list(a.hits) or 'ok'}\n    {q.text}")  # fmt: skip
+            if g.llm_error:
+                print(f"  LLM-Fehler: {g.llm_error}")
+            print(f"  Angezeigt: {g.text}\n")
+    print(f"Tutor-Frage: {counts['tutor']}, Fallback guard: {counts['guard']}, Fallback llm_error: {counts['llm_error']}")
     return 0
 
 

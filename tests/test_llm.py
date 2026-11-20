@@ -18,6 +18,7 @@ REQUEST = httpx2.Request("POST", "https://proxy.test/v1/chat/completions")
 ENV_VARS = [
     "LLM_BASE_URL", "LLM_API_KEY", "TUTOR_MODEL", "GRADER_MODEL", "LLM_TIMEOUT_S", "LLM_MAX_RETRIES",
     "TUTOR_TEMPERATURE", "TUTOR_PROMPT_VERSION", "GRADER_TEMPERATURE", "GRADER_PROMPT_VERSION", "LLM_NO_CACHE",
+    "TUTOR_STRICT_VERSION",
 ]  # fmt: skip
 
 
@@ -440,3 +441,13 @@ def test_config_invalid_tutor_values(clean_env: pytest.MonkeyPatch, name: str, v
 def test_config_whitespace_key_rejected_by_model() -> None:
     with pytest.raises(ValueError):
         LLMConfig(base_url="u", api_key="   ", tutor_model="t", grader_model="g", timeout_s=1, max_retries=0)
+
+
+def test_config_tutor_strict_version(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("LLM_API_KEY", FAKE_KEY)
+    assert load_config(None).tutor_strict_version == 1
+    clean_env.setenv("TUTOR_STRICT_VERSION", "2")
+    assert load_config(None).tutor_strict_version == 2
+    clean_env.setenv("TUTOR_STRICT_VERSION", "0")
+    with pytest.raises(ConfigError, match="TUTOR_STRICT_VERSION"):
+        load_config(None)

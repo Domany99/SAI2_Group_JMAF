@@ -22,7 +22,7 @@ EXPECTED_KEYS = [
     "session", "exercise", "stage", "role", "prompt_version", "model", "temperature",
     "text", "guard_hit", "verdict", "ts",
     # Ergänzungen (Entscheide im README)
-    "prior_knowledge", "hook", "prompt_hash", "n_examples", "cache_hit", "error",
+    "prior_knowledge", "hook", "prompt_hash", "n_examples", "attempt", "cache_hit", "fallback", "error",
 ]  # fmt: skip
 HASH = "a" * 64
 
@@ -42,6 +42,7 @@ def tutor_turn(**overrides: Any) -> Turn:
         "hook": "none",
         "prompt_hash": HASH,
         "n_examples": 2,
+        "attempt": 1,
         "cache_hit": False,
     }
     data.update(overrides)
@@ -56,11 +57,18 @@ def student_turn(**overrides: Any) -> Turn:
         "temperature": None,
         "prompt_hash": None,
         "n_examples": None,
+        "attempt": None,
         "cache_hit": None,
         "text": "Alle, die die Seite öffnen.",
     }
     data.update(overrides)
     return tutor_turn(**data)
+
+
+def hint_turn(**overrides: Any) -> Turn:
+    data: dict[str, Any] = {"role": "hint", "text": "Expert:innen-Hint", "fallback": "guard"}
+    data.update(overrides)
+    return student_turn(**data)
 
 
 def grader_turn(**overrides: Any) -> Turn:
@@ -70,6 +78,7 @@ def grader_turn(**overrides: Any) -> Turn:
         "model": "gpt-oss:120b",
         "temperature": 0.0,
         "n_examples": None,
+        "attempt": None,
         "text": "Alle, die die Seite öffnen.",
         "verdict": Verdict.PARTIAL,
     }
@@ -103,7 +112,9 @@ def test_line_has_spec_fields_in_order(tmp_path: Path) -> None:
         "hook": "none",
         "prompt_hash": HASH,
         "n_examples": 2,
+        "attempt": 1,
         "cache_hit": False,
+        "fallback": None,
         "error": None,
     }
 
@@ -306,12 +317,13 @@ def test_valid_prompt_versions(version: str) -> None:
      ("cache_hit", False)],
 )  # fmt: skip
 def test_non_llm_turn_has_no_llm_fields(role: str, field: str, value: Any) -> None:
+    factory = hint_turn if role == "hint" else student_turn
     with pytest.raises(ValidationError, match=f"{field}: nur bei tutor und grader erlaubt"):
-        student_turn(role=role, **{field: value})
+        factory(**{field: value})
 
 
 def test_hint_turn_is_valid_without_llm_fields() -> None:
-    assert student_turn(role="hint", text="Expert:innen-Hint").role == "hint"
+    assert hint_turn().role == "hint"
 
 
 def test_grader_needs_verdict() -> None:
@@ -333,7 +345,7 @@ def test_guard_hit_only_on_tutor(factory: Any) -> None:
 
 def test_guard_hit_on_hint_is_rejected() -> None:
     with pytest.raises(ValidationError, match="guard_hit"):
-        student_turn(role="hint", guard_hit=True)
+        hint_turn(guard_hit=True)
 
 
 GRADER_ERRORS = ["empty_output", "invalid_json", "not_an_object", "schema_violation", "quote_not_found"]
@@ -420,3 +432,53 @@ def test_turn_is_immutable() -> None:
     turn = tutor_turn()
     with pytest.raises(ValidationError):
         turn.text = "anders"  # type: ignore[misc]
+
+
+# --- attempt und fallback (I-09) --------------------------------------------
+
+
+@pytest.mark.parametrize("attempt", [1, 2])
+def test_tutor_attempt_is_logged(tmp_path: Path, attempt: int) -> None:
+    path = turn_log.write_turn(tutor_turn(attempt=attempt, guard_hit=True), tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["attempt"] == attempt
+
+
+def test_tutor_needs_attempt() -> None:
+    with pytest.raises(ValidationError, match="attempt: Pflicht bei role=tutor"):
+        tutor_turn(attempt=None)
+
+
+@pytest.mark.parametrize("attempt", [0, 3, -1])
+def test_attempt_only_1_or_2(attempt: int) -> None:
+    with pytest.raises(ValidationError, match="attempt"):
+        tutor_turn(attempt=attempt)
+
+
+@pytest.mark.parametrize("factory", [student_turn, grader_turn, hint_turn])
+def test_attempt_only_on_tutor(factory: Any) -> None:
+    with pytest.raises(ValidationError, match="attempt: nur bei role=tutor"):
+        factory(attempt=1)
+
+
+@pytest.mark.parametrize("reason", ["guard", "llm_error"])
+def test_hint_fallback_is_logged(tmp_path: Path, reason: str) -> None:
+    path = turn_log.write_turn(hint_turn(fallback=reason), tmp_path)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert record["role"] == "hint"
+    assert record["fallback"] == reason
+
+
+def test_hint_needs_fallback() -> None:
+    with pytest.raises(ValidationError, match="fallback: Pflicht bei role=hint"):
+        hint_turn(fallback=None)
+
+
+def test_unknown_fallback_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="fallback"):
+        hint_turn(fallback="timeout")
+
+
+@pytest.mark.parametrize("factory", [tutor_turn, student_turn, grader_turn])
+def test_fallback_only_on_hint(factory: Any) -> None:
+    with pytest.raises(ValidationError, match="fallback: nur bei role=hint"):
+        factory(fallback="guard")
