@@ -15,6 +15,7 @@ _VALID: dict[str, Any] = {
     "id": "beispiel",
     "title": "Beispielübung",
     "version": 1,
+    "order": 1,
     "decoy": False,
     "scenario": {"requirement": "Auftrag", "ai_chat": "Chat", "code": "const x = 1;"},
     "answer_key": {

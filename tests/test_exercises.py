@@ -211,6 +211,7 @@ def test_id_format(write_exercise: Writer, valid_data: dict[str, Any], bad_id: s
 def test_unique_ids_load(write_exercise: Writer, valid_data: dict[str, Any], tmp_path: Path) -> None:
     write_exercise(valid_data)
     valid_data["id"] = "zweite"
+    valid_data["order"] = 2
     write_exercise(valid_data)
     assert list(load_all(tmp_path)) == ["beispiel", "zweite"]
 
@@ -278,6 +279,7 @@ def test_load_all_collects_problems_of_all_files(
     valid_data["decoy"] = "ja"
     first = write_exercise(valid_data)
     valid_data["id"] = "zweite"
+    valid_data["order"] = 2
     valid_data["decoy"] = False
     valid_data["answer_key"]["accepted"] = ["nur eine"]
     second = write_exercise(valid_data)
@@ -366,3 +368,45 @@ def test_fix_choice_verdict_values(write_exercise: Writer, valid_data: dict[str,
     valid_data["close"]["fix_choices"] = [_FIX_CHOICES[0], {**_FIX_CHOICES[1], "verdict": "falsch"}]
     path = write_exercise(valid_data)
     _assert_problem(_problems(path), path, "close.fix_choices.1.verdict", "erlaubt sind nur")
+
+
+# --- Reihenfolge (order) -------------------------------------------------------------
+
+
+def test_order_missing(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    del valid_data["order"]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "order", "Pflichtfeld fehlt")
+
+
+@pytest.mark.parametrize("value", [0, -1, "1", 1.5])
+def test_order_must_be_positive_int(write_exercise: Writer, valid_data: dict[str, Any], value: Any) -> None:
+    valid_data["order"] = value
+    path = write_exercise(valid_data)
+    assert any(p.startswith(f"{path}: order: ") for p in _problems(path))
+
+
+def test_duplicate_order(write_exercise: Writer, valid_data: dict[str, Any], tmp_path: Path) -> None:
+    write_exercise(valid_data)
+    valid_data["id"] = "zweite"
+    second = write_exercise(valid_data)
+    with pytest.raises(ExerciseValidationError) as info:
+        load_all(tmp_path)
+    _assert_problem(info.value.problems, second, "order", "eindeutig")
+
+
+def test_load_all_sorts_by_order_not_id(write_exercise: Writer, valid_data: dict[str, Any], tmp_path: Path) -> None:
+    valid_data["order"] = 2
+    write_exercise(valid_data)  # beispiel
+    valid_data["id"] = "aaa-zuerst-nach-id"
+    valid_data["order"] = 1
+    write_exercise(valid_data)
+    valid_data["id"] = "zzz"
+    valid_data["order"] = 3
+    write_exercise(valid_data)
+    assert list(load_all(tmp_path)) == ["aaa-zuerst-nach-id", "beispiel", "zzz"]
+
+
+def test_real_exercises_have_order_1_to_n() -> None:
+    exercises = load_all(EXERCISES_DIR)
+    assert [e.order for e in exercises.values()] == list(range(1, len(exercises) + 1))

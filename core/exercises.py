@@ -79,7 +79,9 @@ def load_exercise(path: str | Path) -> Exercise:
 
 
 def load_all(path: str | Path = "exercises") -> dict[str, Exercise]:
-    """Lädt alle Übungen eines Ordners, sortiert nach id.
+    """Lädt alle Übungen eines Ordners, sortiert nach `order`.
+
+    `order` muss über alle Dateien eindeutig sein, genau wie die id.
 
     Sammelt die Fehler aller Dateien und wirft am Ende eine einzige
     ExerciseValidationError, damit man alle Probleme auf einmal sieht.
@@ -91,6 +93,7 @@ def load_all(path: str | Path = "exercises") -> dict[str, Exercise]:
     files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix in EXERCISE_SUFFIXES)
     exercises: dict[str, Exercise] = {}
     sources: dict[str, Path] = {}
+    order_sources: dict[int, Path] = {}
     problems: list[str] = []
 
     for file in files:
@@ -102,9 +105,15 @@ def load_all(path: str | Path = "exercises") -> dict[str, Exercise]:
         if exercise.id in exercises:
             problems.append(_problem(file, "id", f"muss eindeutig sein (schon verwendet in {sources[exercise.id]})"))
             continue
+        if exercise.order in order_sources:
+            problems.append(
+                _problem(file, "order", f"muss eindeutig sein (schon verwendet in {order_sources[exercise.order]})")
+            )
+            continue
         exercises[exercise.id] = exercise
         sources[exercise.id] = file
+        order_sources[exercise.order] = file
 
     if problems:
         raise ExerciseValidationError(problems)
-    return dict(sorted(exercises.items()))
+    return dict(sorted(exercises.items(), key=lambda item: item[1].order))

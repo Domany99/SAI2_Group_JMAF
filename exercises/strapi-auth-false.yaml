@@ -1,6 +1,7 @@
 id: strapi-auth-false
 title: Strapi-Kommentare mit auth false für alle Aktionen
 version: 1
+order: 2
 decoy: false
 
 scenario:
