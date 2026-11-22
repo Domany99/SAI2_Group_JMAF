@@ -25,10 +25,26 @@ class LevelInfo:
     description: str
 
 
+# Die Beschreibungen fragen nach Erfahrung, nicht nach dem Hilfewunsch. So wählen
+# Studierende nach dem, was sie getan haben, und Stufe 03 entspricht dem Segment
+# "mit Security-Vorbildung" (H11). Sie versprechen nichts, was die App nicht tut:
+# Stufen und Hinweise sind für alle gleich, nur die Formulierung ändert sich.
 LEVELS: dict[PriorKnowledge, LevelInfo] = {
-    PriorKnowledge.NEW: LevelInfo("01", "Neu im Thema", "Führ mich mit Fragen Schritt für Schritt hin."),
-    PriorKnowledge.BASICS: LevelInfo("02", "Ich kenne die Grundlagen", "Weniger Hinweise, schnellere Schritte."),
-    PriorKnowledge.EXPERIENCED: LevelInfo("03", "Erfahren", "Kurze Checks, direkt auf den Punkt."),
+    PriorKnowledge.NEW: LevelInfo(
+        "01",
+        "Neu im Thema",
+        "Begriffe wie XSS oder API-Key sagen mir wenig. Code auf Sicherheitslücken geprüft habe ich noch nie.",
+    ),
+    PriorKnowledge.BASICS: LevelInfo(
+        "02",
+        "Ich kenne die Grundlagen",
+        "Begriffe wie XSS oder API-Key kenne ich aus dem Unterricht, selbst Code darauf geprüft habe ich selten oder nie.",
+    ),
+    PriorKnowledge.EXPERIENCED: LevelInfo(
+        "03",
+        "Erfahren",
+        "Ich habe ein Security-Modul besucht oder prüfe Code regelmässig auf Sicherheitslücken.",
+    ),
 }
 
 
