@@ -460,7 +460,7 @@ def show_welcome() -> None:
             st.markdown(
                 '<span class="mtg-label">Einstufung · vor deiner ersten Übung</span>'
                 "<h2>Wie viel weisst du über Web-Security?</h2>"
-                '<p style="color:#4b5563;font-size:16px;line-height:1.5">Der Tutor passt seine Fragen an dich an. '
+                '<p style="color:#4b5563;font-size:16px;line-height:1.5">Der Tutor passt die Formulierung seiner Fragen an dich an. '
                 "Du kannst das später jederzeit ändern.</p>",
                 unsafe_allow_html=True,
             )

@@ -167,7 +167,10 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   selbst ein (`core/prior_knowledge.py`: neu, Grundlagen, erfahren). Ohne
   Einstufung startet keine Übung. In Schritt 2 wird die Stufe nur angezeigt
   und pro Antwort mitgeführt. Ab Schritt 3 geht sie in den Tutor-Kontext und
-  in die Logs (Segmentvergleich, H11).
+  in die Logs (Segmentvergleich, H11). Die Beschreibungen der Stufen fragen
+  nach Erfahrung (Begriffe gekannt, Code geprüft, Security-Modul besucht),
+  nicht nach dem gewünschten Tempo. Sie versprechen keine Unterschiede bei
+  Stufen oder Hinweisen, weil es diese nicht gibt.
 - **`Verdict` in `core/models.py`:** liegt dort wie im Layout vorgesehen,
   weil auch `Turn` ihn braucht (sonst Import-Kreis mit `core/stages.py`).
   `core/stages.py` re-exportiert ihn, bestehende Imports bleiben gültig.
