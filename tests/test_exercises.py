@@ -34,7 +34,7 @@ def _assert_problem(problems: list[str], path: Path, field: str, rule_fragment: 
 
 def test_real_exercises_load_without_errors() -> None:
     exercises = load_all(EXERCISES_DIR)
-    assert list(exercises) == ["api-key-frontend", "strapi-auth-false", "xss-projektsuche"]
+    assert list(exercises) == ["api-key-frontend", "strapi-auth-false", "xss-projektsuche", "kommentare-bereinigt"]
 
 
 # --- Gültiger Grundfall --------------------------------------------------------
