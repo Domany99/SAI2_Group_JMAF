@@ -124,6 +124,17 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Strapi-Übung:** `strapi-auth-false` ersetzt den Platzhalter
   `strapi-public-create`. In den Agent-Tests war Public `create` gewollt, die
   Lücke war `auth: false` in der Route, das auch Ändern und Löschen öffnet.
+- **Decoy-Übung:** `kommentare-bereinigt` (`order: 4`) ist ein echter
+  Agent-Lauf (17.11.2026), in dem die KI `v-html` mit einer eigenen
+  Bereinigung (Positivliste) gebaut hat. In Chromium mit 30 Eingaben
+  getestet, keine Ausführung. Ein Decoy statt der 1 bis 2 aus
+  `development.md`. Er steht fest an vierter Stelle; wer die Übungen
+  wiederholt, kennt ihn. Das ist eine Limitation, kein Versehen.
+- **Decoy-Bewertung:** Behauptet eine Antwort eine konkrete Lücke, die es
+  nicht gibt, ist sie `not`, auch wenn der Einwand fachlich berechtigt ist
+  (etwa "eigene Filter sind lückenhaft"). So steht es in `grader_v2`, und so
+  wird auch beim Labeln gewertet. Die Stufen-Logik behandelt `partial` und
+  `not` ohnehin gleich.
 - **Ordner:** `eval/results/` ist angelegt, obwohl es im Layout fehlt.
 - **LLM-Anbindung vorgezogen:** `core/llm.py` und `core/config.py` entstehen
   vor Schritt 2 der "Order of work" (UI ohne LLM). Tutor, Grader und Prompts

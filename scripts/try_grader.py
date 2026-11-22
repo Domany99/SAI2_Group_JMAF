@@ -44,6 +44,14 @@ CASES: dict[str, list[tuple[str, str]]] = {
          "recognized"),
         ("Man sollte textContent statt innerHTML nehmen.", "partial"),
     ],
+    # Decoy: recognized = "in Ordnung" mit Grund aus sanitizeHtml (Entscheid 22.11., Option A).
+    "kommentare-bereinigt": [
+        ("Passt so: sanitizeHtml löscht alle Attribute, also auch onerror, und Links bleiben nur mit http "
+         "oder https. Das wird beim Anzeigen gemacht.", "recognized"),
+        ("v-html ist immer unsicher, das ist XSS.", "not"),
+        ("Unsicher, eigene Filter haben fast immer Lücken. Ich würde DOMPurify nehmen.", "not"),
+        ("Die KI sagt ja, unsichere Inhalte werden entfernt, also passt es.", "partial"),
+    ],
 }  # fmt: skip
 
 

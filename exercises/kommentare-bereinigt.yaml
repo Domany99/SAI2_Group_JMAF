@@ -1,0 +1,183 @@
+id: kommentare-bereinigt
+title: Kommentare mit Fettschrift und Links, per v-html angezeigt
+version: 1
+order: 4
+# Decoy: Der Code ist in Ordnung. "recognized" heisst, die Person beurteilt ihn
+# als sicher und nennt einen Grund aus sanitizeHtml.
+decoy: true
+
+scenario:
+  requirement: >
+    Lea und ihre Gruppe bauen im WSEG eine Projektplattform mit Vue und
+    Strapi. Unter jedem Projekt können Besucherinnen und Besucher ohne Login
+    Kommentare schreiben. Die Rechte sind sauber gesetzt: Im Strapi-Admin darf
+    die Rolle Public bei Comment nur create, find und findOne. Jetzt sollen
+    die Kommentare unter dem Formular erscheinen, und man soll darin fett
+    schreiben und Links setzen können. Lea gibt das Copilot im Agent-Modus.
+    Die Funktion läuft. Lea will die Änderung heute ins Gruppen-Repo pushen.
+  # Echter Lauf 8: GitHub Copilot, Agent-Modus, MAI-Code-2 Flash, 17.11.2026.
+  # Prompt und Antwort wörtlich, die Antwort vollständig.
+  ai_chat: |
+    Lea: zeige unter dem formular alle kommentare an. man soll in kommentaren
+    auch fett schreiben und links setzen können
+
+    KI: Das Formular zeigt jetzt alle Kommentare darunter an.
+    Fettgedruckten Text und Links sind möglich
+    Kommentare werden beim Speichern automatisch aktualisiert
+    HTML wird bereinigt und unsichere Inhalte werden entfernt
+  # Wörtlich aus Lauf 8, gekürzt auf Bereinigung, Laden und Anzeige. Das
+  # Formular bereinigt zusätzlich vor dem Speichern (nicht gezeigt). Rund 55
+  # Zeilen, entschieden am 22.11.: Die Funktion muss ganz beurteilt werden.
+  code: |
+    function sanitizeHtml(html) {
+      const template = document.createElement("template");
+      template.innerHTML = html;
+
+      const allowedTags = new Set(["B", "STRONG", "A", "BR", "DIV", "P"]);
+
+      function clean(node) {
+        [...node.childNodes].forEach((child) => {
+          if (child.nodeType === Node.TEXT_NODE) return;
+
+          if (child.nodeType !== Node.ELEMENT_NODE || !allowedTags.has(child.tagName)) {
+            clean(child);
+            child.replaceWith(...child.childNodes);
+            return;
+          }
+
+          if (child.tagName === "A") {
+            const href = child.getAttribute("href") || "";
+            try {
+              const url = new URL(href, window.location.href);
+              if (url.protocol !== "http:" && url.protocol !== "https:") {
+                child.replaceWith(...child.childNodes);
+                return;
+              }
+              [...child.attributes].forEach((attribute) => child.removeAttribute(attribute.name));
+              child.setAttribute("href", url.href);
+              child.setAttribute("target", "_blank");
+              child.setAttribute("rel", "noopener noreferrer");
+            } catch {
+              child.replaceWith(...child.childNodes);
+              return;
+            }
+          } else {
+            [...child.attributes].forEach((attribute) => child.removeAttribute(attribute.name));
+          }
+
+          clean(child);
+        });
+      }
+
+      clean(template.content);
+      return template.innerHTML;
+    }
+
+    async function loadComments() {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error(`Kommentare konnten nicht geladen werden (${response.status})`);
+
+      const result = await response.json();
+      comments.value = result.data.map((item) => ({
+        id: item.documentId || item.id,
+        text: sanitizeHtml(item.text || ""),
+      })).reverse();
+    }
+
+    <!-- Template (Ausschnitt) -->
+    <article v-for="comment in comments" :key="comment.id" class="comment">
+      <div v-html="comment.text"></div>
+    </article>
+
+answer_key:
+  # Bei Decoys: warum der Code in Ordnung ist (siehe README, Entscheid "Decoys").
+  issue: >
+    Der Code ist in Ordnung. Zwischen Quelle (Kommentartext aus Strapi, von
+    Fremden geschrieben) und Senke (v-html) liegt sanitizeHtml, beim Laden auf
+    jeden Kommentar angewendet. (1) Positivliste: Nur b, strong, a, br, div
+    und p bleiben, alle anderen Elemente werden ausgepackt, nur ihr Text
+    bleibt. (2) Alle Attribute werden entfernt, also auch onerror, onmouseover
+    und style. (3) Links behalten nur ein href mit http: oder https:,
+    javascript: und data: fallen weg. (4) Bereinigt wird beim Anzeigen, das
+    schützt auch vor Kommentaren, die jemand am Formular vorbei direkt an die
+    API schickt. Eine geprüfte Bibliothek wie DOMPurify wäre bei künftigen
+    Änderungen robuster (OWASP-Empfehlung), eine Lücke in diesem Code ist das
+    aber nicht.
+  consequence: >
+    Kein fremdes Skript wird ausgeführt. Fremde können Text, Fettschrift und
+    Links auf http(s)-Seiten setzen, das ist gewollt. Getestet am 17.11.2026
+    (3 Angriffe über die API) und am 22.11.2026 in Chromium mit 30 Eingaben,
+    darunter Mutation-XSS-Muster: keine Ausführung.
+  accepted:
+    - "die Kommentare werden vor v-html bereinigt, nur ein paar Tags bleiben und alle Attribute werden entfernt, also kein Skript"
+    - "onerror oder onclick kommen nicht durch, weil sanitizeHtml alle Attribute löscht, und Links nur mit http oder https bleiben"
+    - "v-html ist hier in Ordnung, weil beim Anzeigen bereinigt wird, auch wenn jemand direkt an die API schickt"
+    - "sicher, die Positivliste lässt nur b, strong, a, br, div und p durch, ich würde trotzdem DOMPurify statt einer eigenen Funktion nehmen"
+
+stages:
+  1:
+    goal: Den Weg eines Kommentars bis zur Anzeige verfolgen lassen, ohne ein Urteil vorwegzunehmen
+    # TODO Expert:in: Vorschlag aus dem Decoy-Entwurf. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Ein Kommentar kommt von einer fremden Person und landet am Ende in v-html. Was passiert mit dem Text auf dem Weg dorthin?"
+    forbidden: ["sicher", "unsicher", "harmlos", "gefährlich", "Lücke", "XSS", "bereinigt", "entfernt", "Positivliste", "Allowlist"]
+  2:
+    goal: Die Funktion an einem konkreten Beispiel durchspielen lassen
+    # TODO Expert:in: Vorschlag aus dem Decoy-Entwurf. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Nimm einen Kommentar, den jemand direkt an die API schickt: ein Bild, das beim Laden ein Skript startet, und einen Link, der mit javascript: beginnt. Geh sanitizeHtml Zeile für Zeile durch. Was bleibt davon übrig?"
+    forbidden: ["sicher", "unsicher", "harmlos", "gefährlich", "Lücke", "XSS"]
+  3:
+    goal: Übertragung über eine Analogie, die Person verbindet sie selbst mit dem Code
+    # TODO Expert:in: Vorschlag aus dem Decoy-Entwurf. Der finale Hint kommt von der Fachperson (Gold Standard).
+    hint: "Eine Poststelle öffnet jeden Brief, behält nur Dinge von einer kurzen Liste und schneidet bei Adressen alles weg, was nicht mit einer bekannten Vorwahl beginnt. Was kommt bei der Empfängerin an, und was müsste die Poststelle übersehen, damit etwas Unerwünschtes durchkommt?"
+    forbidden: ["sicher", "unsicher", "harmlos"]
+
+# Nach dem Abschluss persönlich machen: "Wenn du in deinem Projekt v-html siehst,
+# frag nicht zuerst, ob es gefährlich ist, sondern was davor mit den Daten passiert."
+close:
+  fix: >
+    Kein Fix nötig. Die Bereinigung beim Anzeigen beibehalten, auch wenn das
+    Formular schon vor dem Speichern bereinigt, weil die API öffentlich
+    beschreibbar ist. Für die Wartung: die eigene Funktion durch eine geprüfte
+    Bibliothek wie DOMPurify ersetzen, mit derselben Positivliste. Wer die
+    Positivliste später erweitert, etwa um img oder style, muss sie neu prüfen.
+  pruefmuster: "Bevor du eine Lücke meldest: Woher kommen die Daten, wo landen sie, und wird dazwischen bereinigt? Bereinigung beim Anzeigen schützt auch vor Daten, die am Formular vorbei kommen."
+  fix_choices:
+    - text: "Nichts ändern, die Bereinigung beim Anzeigen beibehalten"
+      verdict: correct
+      reason: "Der Code ist in Ordnung. Die Bereinigung beim Anzeigen schützt auch vor direkten API-Aufrufen."
+    - text: "sanitizeHtml durch DOMPurify mit derselben Positivliste ersetzen"
+      verdict: correct
+      reason: "Gleichwertig und bei künftigen Änderungen robuster."
+    - text: "Nur noch beim Speichern bereinigen, das Anzeigen vereinfachen"
+      verdict: wrong
+      reason: "Wer direkt an die API schickt, umgeht das Formular. Ungeprüftes HTML käme in v-html."
+    - text: "v-html durch {{ }} ersetzen"
+      verdict: wrong
+      reason: "Dann erscheint der HTML-Code als Text, Fettschrift und Links funktionieren nicht mehr. Die Anforderung ist verfehlt."
+
+# Der Grader gibt die id als "misconception" zurück.
+# Entscheid 22.11.: Wer eine konkrete Lücke behauptet, die es nicht gibt, ist
+# "not", auch bei eigener-filter (Decoy-Regel in grader_v2, beim Labeln gleich werten).
+# TODO Expert:in: Reaktionen aus dem Decoy-Entwurf, noch nicht von der Fachperson geprüft.
+misconceptions:
+  - id: v-html-immer-unsicher
+    belief: "v-html ist immer unsicher."
+    reaction: "v-html setzt HTML ein, das stimmt, deshalb lohnt sich der Blick davor. Was passiert mit dem Text, bevor er bei v-html ankommt?"
+  - id: script-nicht-gefiltert
+    belief: "Es fehlt ein Filter für <script>."
+    reaction: "Schau, was die Funktion mit Tags macht, die nicht in allowedTags stehen. Was bleibt von einem Script-Tag übrig?"
+  - id: javascript-links
+    belief: "Man kann einen Link mit javascript: einschleusen."
+    reaction: "Spiel es durch: Was macht die Funktion mit einem Link, dessen Adresse nicht mit http oder https beginnt?"
+  - id: nur-beim-speichern
+    belief: "Es reicht, beim Speichern zu bereinigen."
+    reaction: "Wer schickt die Kommentare an die API? Muss das immer Leas Formular sein?"
+  - id: ki-code-unsicher
+    belief: "Das hat eine KI geschrieben, also ist es unsicher."
+    reaction: "Woran im Code selbst machst du das fest?"
+  - id: ki-hat-bereinigt
+    belief: "Die KI sagt, unsichere Inhalte werden entfernt, also passt es."
+    reaction: "Das sagt die KI. Wo im Code passiert das, und was genau wird entfernt?"
+  - id: eigener-filter
+    belief: "Eigene Filter sind immer lückenhaft, das ist unsicher."
+    reaction: "Für die Wartung ist eine geprüfte Bibliothek oft besser, das stimmt. Findest du in dieser Funktion einen konkreten Weg, wie Code durchkommt?"
