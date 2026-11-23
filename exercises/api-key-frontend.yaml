@@ -109,14 +109,6 @@ stages:
     # Den Fix nicht vorwegnehmen.
     forbidden: ["Proxy", "Serverless"]
 
-# Nach dem Abschluss: Folge persönlich machen ("Stell dir vor, du bekommst
-# Monate nach der Abgabe eine E-Mail, dass dein Limit überschritten ist, für
-# Anfragen, die nie über deine Seite liefen."). Abschlussfrage, noch ohne Feld:
-# "Eine aktuelle KI hat denselben Auftrag umgesetzt und erst danach gewarnt:
-# 'Für echte Produktionssicherheit sollte daher ein Backend mit Server-Proxy
-# verwendet werden.' Ist Leas Portfolio mit dem Link in ihren Bewerbungen ein
-# Lernprojekt oder Produktion?" (Copilot-Tests 06.11. und 20.11.2026: 3 von 3
-# erkannt, im Umsetzungslauf erst nach der Umsetzung gewarnt.)
 close:
   fix: >
     Der Key darf den Browser nie erreichen. Ein kleiner Proxy, zum Beispiel
@@ -128,6 +120,12 @@ close:
     offenen Zugang. Zusätzlich beim Anbieter ein tiefes Ausgabenlimit setzen
     und den Key löschen, sobald die Seite nicht mehr gebraucht wird.
   pruefmuster: "Wer braucht das Geheimnis zur Laufzeit: der Build, ein Server oder der Browser? Was der Browser braucht, kann jede Person lesen. Dann gehört es nicht in den Browser, sondern hinter einen Server."
+  # Copilot-Tests 06.11. und 20.11.2026: 3 von 3 erkannt, im Umsetzungslauf
+  # erst nach der Umsetzung gewarnt (Zitat unten wörtlich aus Lauf D).
+  reflection:
+    personal: "Stell dir vor, du bekommst Monate nach der Abgabe eine E-Mail, dass dein Limit beim KI-Anbieter überschritten ist, für Anfragen, die nie über deine Seite liefen. Genau das ist im echten Fall passiert, 156 Tage nach dem ersten Deploy."
+    questions:
+      - "Eine aktuelle KI hat denselben Auftrag umgesetzt und erst danach gewarnt: «Für echte Produktionssicherheit sollte daher ein Backend mit Server-Proxy verwendet werden.» Ist Leas Portfolio mit dem Link in ihren Bewerbungen ein Lernprojekt oder Produktion?"
   # Erst nach dem Erkennen und nur, wenn die Person keinen eigenen Fix findet. Wahl begründen lassen.
   fix_choices:
     - text: "Einen kleinen Proxy dazwischen schalten: Der Key liegt nur dort, die Seite ruft den Proxy auf"

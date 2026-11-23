@@ -100,9 +100,6 @@ stages:
     # Auch Stufe 3 nennt den fertigen Angriff nicht.
     forbidden: ["XSS", "Cross-Site", "onerror"]
 
-# Nach dem Abschluss zusätzlich deklarieren: Der Code ist nachgebaut, in den Tests
-# war die KI hier sicher. Abschlussfragen und Befund zu den KI-Läufen 5 bis 9
-# stehen im Aufgabe-3-Dokument, das Schema hat dafür noch kein Feld.
 close:
   fix: >
     innerHTML durch textContent ersetzen und die Elemente einzeln bauen, dann
@@ -114,6 +111,13 @@ close:
     bei jeder Stelle neu überlegen. Getestet am 20.10.2026: Alle Testeingaben
     erscheinen nur noch als Text.
   pruefmuster: "Quelle und Senke: Woher kommen die Daten (URL, Formular, fremde API, localStorage)? Wo landen sie (innerHTML, outerHTML, insertAdjacentHTML, document.write)? Fremde Quelle plus HTML-Senke heisst: auf textContent umstellen."
+  # Zweite Frage: deklariert den nachgebauten Code und nennt den Befund der
+  # KI-Läufe 5 bis 9 (Aufgabe-3-Dokument), damit die Frage ohne Dialog trägt.
+  reflection:
+    personal: "Stell dir vor, jemand verschickt einen Link auf deine Portfolio-Seite, und dort steht plötzlich ein gefälschtes Kontaktformular, das in deinem Namen Daten abgreift."
+    questions:
+      - "Schau in deinen eigenen Code: Wo verwendest du innerHTML, und woher kommen dort die Daten?"
+      - "Diese Übung ist nachgebaut: In unseren Tests schrieb die KI für Leas Auftrag sicheren Code. Unsicher wurde ihr Code erst, wenn innerHTML schon im Projekt stand, dann führte sie das Muster ohne Warnung weiter. Steht in deinem Projekt schon irgendwo innerHTML?"
   # Laut Aufgabe-3-Dokument nur der richtige Fix und drei falsche. Eigene
   # Escape-Funktion, Regex-Prüfung und CSP sind teilweise richtig und bleiben
   # draussen, damit die Auswahl scharf bleibt.

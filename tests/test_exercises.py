@@ -410,3 +410,36 @@ def test_load_all_sorts_by_order_not_id(write_exercise: Writer, valid_data: dict
 def test_real_exercises_have_order_1_to_n() -> None:
     exercises = load_all(EXERCISES_DIR)
     assert [e.order for e in exercises.values()] == list(range(1, len(exercises) + 1))
+
+
+# --- Zum Weiterdenken (close.reflection, optional) -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "reflection",
+    [{"personal": "Stell dir vor …"}, {"questions": ["Wo in deinem Code …?"]}, {"personal": "P", "questions": ["F"]}],
+)
+def test_reflection_loads(write_exercise: Writer, valid_data: dict[str, Any], reflection: dict[str, Any]) -> None:
+    valid_data["close"]["reflection"] = reflection
+    assert load_exercise(write_exercise(valid_data)).close.reflection is not None
+
+
+def test_reflection_is_optional(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    assert load_exercise(write_exercise(valid_data)).close.reflection is None
+
+
+def test_reflection_must_not_be_empty(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["close"]["reflection"] = {"questions": []}
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "close.reflection", "personal oder mindestens eine Frage")
+
+
+@pytest.mark.parametrize("reflection", [{"personal": " "}, {"questions": [" "]}])
+def test_reflection_texts_not_blank(write_exercise: Writer, valid_data: dict[str, Any], reflection: dict[str, Any]) -> None:
+    valid_data["close"]["reflection"] = reflection
+    path = write_exercise(valid_data)
+    assert any("darf nicht leer sein" in p for p in _problems(path))
+
+
+def test_real_exercises_have_reflection() -> None:
+    assert all(e.close.reflection is not None for e in load_all(EXERCISES_DIR).values())

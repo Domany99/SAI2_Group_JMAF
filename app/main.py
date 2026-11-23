@@ -685,6 +685,7 @@ def show_close(exercise: Exercise, outcome: Outcome | None, stage: int) -> None:
     else:
         show_fix_result(exercise)
         show_fix_and_pattern(exercise)
+        show_reflection(exercise)
         left, right = st.columns(2)
         left.button("Übung wiederholen", type="primary", on_click=begin, args=(exercise.id,), use_container_width=True)
         right.button("Andere Übung wählen", on_click=back_to_selection, use_container_width=True, key="other")
@@ -779,6 +780,23 @@ def show_fix_result(exercise: Exercise) -> None:
                 f"{esc(option.reason)}</p>",
                 unsafe_allow_html=True,
             )
+
+
+def show_reflection(exercise: Exercise) -> None:
+    """Zum Weiterdenken: persönlicher Bezug und Fragen zum eigenen Code (ohne Eingabe)."""
+    reflection = exercise.close.reflection
+    if reflection is None:
+        return
+    parts = []
+    if reflection.personal:
+        parts.append(f"<p><em>{esc(reflection.personal)}</em></p>")
+    if reflection.questions:
+        items = "".join(f"<li>{esc(q)}</li>" for q in reflection.questions)
+        parts.append(f"<ul>{items}</ul>")
+    st.markdown(
+        '<div class="mtg-box"><span class="mtg-label">Zum Weiterdenken</span>' + "".join(parts) + "</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def show_fix_and_pattern(exercise: Exercise) -> None:
