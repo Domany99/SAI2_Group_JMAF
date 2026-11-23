@@ -79,3 +79,10 @@ def test_tutor_context_hides_misconceptions_and_fix_choices(valid_data: dict[str
     flat = repr(Exercise.model_validate(valid_data).tutor_context(stage))
     for secret in ("GEHEIME-ANNAHME", "GEHEIME-REAKTION", "GEHEIME-OPTION-A", "GEHEIMER-GRUND"):
         assert secret not in flat
+
+
+def test_tutor_context_hides_reflection(valid_data: dict[str, Any]) -> None:
+    valid_data["close"]["reflection"] = {"personal": "GEHEIMER-BEZUG", "questions": ["GEHEIME-FRAGE"]}
+    flat = repr(Exercise.model_validate(valid_data).tutor_context(1))
+    assert "GEHEIMER-BEZUG" not in flat
+    assert "GEHEIME-FRAGE" not in flat

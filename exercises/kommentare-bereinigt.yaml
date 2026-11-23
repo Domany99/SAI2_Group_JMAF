@@ -131,8 +131,6 @@ stages:
     hint: "Eine Poststelle öffnet jeden Brief, behält nur Dinge von einer kurzen Liste und schneidet bei Adressen alles weg, was nicht mit einer bekannten Vorwahl beginnt. Was kommt bei der Empfängerin an, und was müsste die Poststelle übersehen, damit etwas Unerwünschtes durchkommt?"
     forbidden: ["sicher", "unsicher", "harmlos"]
 
-# Nach dem Abschluss persönlich machen: "Wenn du in deinem Projekt v-html siehst,
-# frag nicht zuerst, ob es gefährlich ist, sondern was davor mit den Daten passiert."
 close:
   fix: >
     Kein Fix nötig. Die Bereinigung beim Anzeigen beibehalten, auch wenn das
@@ -141,6 +139,8 @@ close:
     Bibliothek wie DOMPurify ersetzen, mit derselben Positivliste. Wer die
     Positivliste später erweitert, etwa um img oder style, muss sie neu prüfen.
   pruefmuster: "Bevor du eine Lücke meldest: Woher kommen die Daten, wo landen sie, und wird dazwischen bereinigt? Bereinigung beim Anzeigen schützt auch vor Daten, die am Formular vorbei kommen."
+  reflection:
+    personal: "Wenn du in deinem Projekt v-html siehst, frag nicht zuerst, ob es gefährlich ist, sondern was davor mit den Daten passiert."
   fix_choices:
     - text: "Nichts ändern, die Bereinigung beim Anzeigen beibehalten"
       verdict: correct

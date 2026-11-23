@@ -125,3 +125,17 @@ def test_decoy_does_not_talk_about_a_gap(fixed_mode: None) -> None:
     at.button(key=FIX_SUBMIT).click().run()
     assert "Was zu tun ist" in text_of(at)
     assert "So behebst du es" not in text_of(at)
+
+
+def test_reflection_only_after_fix_phase(fixed_mode: None) -> None:
+    at = recognized()
+    reflection = API_KEY.close.reflection
+    assert reflection is not None and reflection.personal is not None
+    assert "Zum Weiterdenken" not in text_of(at)
+
+    at.text_area(key="fix_input").input("Einen Proxy dazwischen bauen.")
+    at.button(key=FIX_SUBMIT).click().run()
+    text = text_of(at)
+    assert "Zum Weiterdenken" in text
+    assert reflection.personal in text
+    assert all(q in text for q in reflection.questions)

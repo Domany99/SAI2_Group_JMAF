@@ -85,6 +85,10 @@ close:
     begrenzen (maxLength) und Anfragen per Middleware begrenzen. Getestet am
     17.11.2026: PUT und DELETE ohne Login ergeben 405 statt 200.
   pruefmuster: "Wer darf was, und wo wird es geprüft? Für jede Aktion: alle, Eingeloggte oder nur die Besitzerin? Und steht die Regel dort, wo man sie sieht, in der Rolle im Admin, oder versteckt im Code?"
+  reflection:
+    personal: "Stell dir vor, jemand ändert deinen Kommentar unter dem Projekt eurer Gruppe in etwas Peinliches, und niemand kann nachvollziehen, wer es war."
+    questions:
+      - "In einem zweiten Lauf hat die KI nur create geöffnet. Ist das in Ordnung? Und wer hat eigentlich entschieden, dass alle ohne Login kommentieren dürfen?"
   # Erst nach dem Erkennen und nur, wenn die Person keinen eigenen Fix findet. Wahl begründen lassen.
   fix_choices:
     - text: "auth: false entfernen und in der Public-Rolle nur create, find und findOne freigeben"

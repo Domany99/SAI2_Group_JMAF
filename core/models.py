@@ -116,10 +116,28 @@ class FixChoice(_Model):
     reason: NonEmptyStr
 
 
+class Reflection(_Model):
+    """Abschluss nach dem Prüfmuster: persönlicher Bezug und Fragen zum Weiterdenken.
+
+    Hattie & Timperley, Ebene Self-regulation: die Übertragung auf den eigenen
+    Code. Mindestens eines der beiden Felder muss gesetzt sein.
+    """
+
+    personal: NonEmptyStr | None = None  # macht die Folge persönlich ("Stell dir vor, …")
+    questions: list[NonEmptyStr] = []  # Fragen zum Weiterdenken, ohne Eingabefeld
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> Reflection:
+        if self.personal is None and not self.questions:
+            raise ValueError("braucht personal oder mindestens eine Frage in questions")
+        return self
+
+
 class Close(_Model):
     fix: NonEmptyStr
     pruefmuster: NonEmptyStr
     fix_choices: list[FixChoice] = []  # optional, Regeln in Exercise._check_extras
+    reflection: Reflection | None = None  # optional, nach dem Prüfmuster angezeigt
 
 
 class Exercise(_Model):

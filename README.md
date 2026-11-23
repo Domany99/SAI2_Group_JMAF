@@ -123,9 +123,16 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Person vergleicht ihn selbst mit dem Fix. Bei Decoys lauten Titel und Frage
   anders («Der Code ist in Ordnung», «Würdest du trotzdem etwas ändern?»).
   Läuft in `MODE=fixed` und `MODE=llm` gleich, ohne LLM.
-- **Beheben-Phase nicht geloggt:** Eigener Vorschlag, Wahl und Begründung
-  stehen nur in der Sitzung. `Turn` kennt dafür keine Rolle und nur die
-  Stufen 1 bis 3. Ob die Daten ins Log sollen, ist offen.
+- **Beheben-Phase nicht geloggt (Entscheid 23.11.2026):** Eigener Vorschlag,
+  Wahl und Begründung stehen nur in der Sitzung, `Turn` bleibt unverändert.
+  Die Evaluation (Grader, Tutor-Fragen, Leak-Rate) misst die Beheben-Phase
+  nicht. Beobachtungen dazu kommen nur von der Testleitung. Im Bericht als
+  Limitation nennen.
+- **Zum Weiterdenken:** Optionales Feld `close.reflection` mit `personal`
+  (die Folge persönlich gemacht) und `questions` (Fragen zur Übertragung auf
+  den eigenen Code, Ebene Self-regulation nach Hattie & Timperley).
+  Mindestens eines von beiden. Die App zeigt es nach dem Prüfmuster, ohne
+  Eingabefeld. Nicht im Tutor-Kontext. Ersetzt die Kommentare in den YAMLs.
 - **Reihenfolge:** Pflichtfeld `order` (ganze Zahl ab 1) auf oberster Ebene,
   eindeutig über alle Übungen. `load_all` sortiert danach statt nach id, die
   App zeigt die Übungen in dieser Reihenfolge. Werte: API-Key 1, Strapi 2,
