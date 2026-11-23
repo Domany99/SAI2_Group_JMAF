@@ -66,7 +66,6 @@ VERDICT_BUTTONS = [
     (Verdict.PARTIAL, "Teilweise"),
     (Verdict.NOT, "Nicht erkannt"),
 ]
-VERDICT_LABELS = dict(VERDICT_BUTTONS)
 
 NAVY = "#0b1726"
 PANEL = "#0f1f33"
@@ -591,11 +590,13 @@ def show_step_badge(stage: int) -> None:
 
 
 def show_history() -> None:
+    # Ohne Urteil: Der Tutor darf Antworten nicht als richtig oder falsch werten,
+    # also zeigt auch der Verlauf kein "Teilweise" oder "Nicht erkannt".
     for turn in st.session_state.history:
         st.markdown(
             f"""
             <div class="mtg-history">
-              <span class="mtg-label">Stufe {turn['stage']} · {esc(VERDICT_LABELS[turn['verdict']])}</span><br>
+              <span class="mtg-label">Stufe {turn['stage']}</span><br>
               {esc(turn['question'])}<br>
               <span class="mtg-answer">„{esc(turn['answer'])}“</span>
             </div>

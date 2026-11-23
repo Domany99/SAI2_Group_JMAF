@@ -224,3 +224,19 @@ def test_unknown_mode_shows_error(monkeypatch: pytest.MonkeyPatch, log_dir: Path
     at.run()
     [error] = at.error
     assert "MODE='turbo'" in error.value
+
+
+def test_llm_mode_history_shows_no_verdict(
+    monkeypatch: pytest.MonkeyPatch, llm_mode: None, log_dir: Path
+) -> None:
+    # Der Tutor darf Antworten nicht als richtig oder falsch werten, also auch die UI nicht.
+    monkeypatch.setattr(tutor, "chat", Scripted(TUTOR_QUESTION, "Zweite Frage?"))
+    monkeypatch.setattr(grader, "chat", Scripted(verdict_json("not", "Den Key")))
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    answer(at)
+
+    assert "STUFE 2 VON 3" in text_of(at)
+    assert ANSWER in text_of(at)  # die Antwort steht im Verlauf
+    for label in ("Nicht erkannt", "Teilweise", "Erkannt"):
+        assert label not in text_of(at)
