@@ -172,9 +172,14 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 }}
 .mtg-step i {{ width: 14px; height: 14px; border-radius: 4px; border: 2px solid #8b95a3; box-sizing: border-box; display: inline-block; }}
 .mtg-step i.on {{ background: {NAVY}; border-color: {NAVY}; }}
-.mtg-question {{ font-family: 'Space Grotesk', sans-serif; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.15; font-weight: 700; margin: 8px 0 4px; }}
+/* Tutor-Frage: Die LLM-Fragen sind oft mehrere Sätze lang, deshalb Fliesstext statt
+   Überschrift (Inter, mittlere Grösse, ruhige Zeilenhöhe, begrenzte Zeilenlänge). */
+.mtg-question {{
+  font-family: Inter, system-ui, sans-serif; font-size: clamp(16px, 1.25vw, 18px); line-height: 1.6;
+  font-weight: 500; color: {NAVY}; max-width: 68ch; margin: 10px 0 12px;
+}}
 /* Fragen der Beheben-Phase: kleiner als die Tutor-Frage, damit sie nicht wie eine Überschrift wirken. */
-.mtg-question.small {{ font-family: Inter, system-ui, sans-serif; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.35; font-weight: 600; margin: 4px 0 8px; }}
+.mtg-question.small {{ font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; font-weight: 600; margin: 4px 0 8px; }}
 .mtg-history {{ padding: 12px 14px; border-radius: 12px; background: #f3f4f6; margin-bottom: 10px; font-size: 14px; line-height: 1.45; }}
 .mtg-history .mtg-label {{ font-size: 12px; }}
 .mtg-answer {{ font-weight: 600; }}
@@ -470,7 +475,7 @@ def current_question(exercise: Exercise) -> str:
     if cached is None or cached.stage != state.stage:
         history = st.session_state.history
         previous = history[-1]["answer"] if history else None
-        with st.spinner("Der Tutor formuliert die nächste Frage … Das kann bis zu einer Minute dauern."):
+        with st.spinner("Der Tutor formuliert die nächste Frage … Das kann bis zu zwei Minuten dauern."):
             cached = session.ask_question(session_context(), exercise, state.stage, get_exercises(), previous)
         st.session_state.question = cached
     return cached.text
@@ -710,7 +715,7 @@ def show_tutor(exercise: Exercise) -> None:
     state = st.session_state.state
 
     top_left, top_right = st.columns([3, 2])
-    top_left.markdown('<span class="mtg-label">Dein Tutor · fragt, verrät nichts</span>', unsafe_allow_html=True)
+    top_left.markdown('<span class="mtg-label">Dein Tutor · Fragen statt Antworten</span>', unsafe_allow_html=True)
     top_right.button("Übung verlassen", on_click=back_to_selection, key="leave", use_container_width=True)
 
     if state.in_hook:

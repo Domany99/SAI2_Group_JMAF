@@ -39,7 +39,7 @@ Zwei Modi über die Variable `MODE` (in `.env` oder als Umgebungsvariable):
   `logs/<YYYY-MM-DD>.jsonl` geloggt. Braucht eine gültige `.env` mit
   API-Key und ausserhalb des BFH-Netzes VPN. Eine Frage dauert 15 bis 114 s
   (Probeläufe), während der Wartezeit zeigt die App einen Ladehinweis mit
-  dem Zusatz, dass es bis zu einer Minute dauern kann.
+  dem Zusatz, dass es bis zu zwei Minuten dauern kann.
 - **`MODE=fixed`:** Schritt 2, für Tests und als Notfall. Die Fragen sind die
   `hint`s aus den Übungsdateien, jede Antwort beurteilt die **Testleitung**
   per Knopf (Erkannt, Teilweise, Nicht erkannt). Kein LLM, kein Log.
@@ -411,6 +411,9 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Scrollbalken im Code:** Streamlit macht Scrollbalken global durchsichtig.
   Im Code-Fenster ist der horizontale Balken deshalb gelb auf Navy gesetzt,
   damit lange Zeilen (Decoy, XSS) sichtbar scrollbar sind.
+- **Tutor-Frage als Fliesstext:** Die LLM-Fragen sind oft mehrere Sätze
+  lang. Sie stehen deshalb in Inter, 16 bis 18 px, mit begrenzter
+  Zeilenlänge, statt als grosse Überschrift in Space Grotesk.
 - **Fragen der Beheben-Phase:** kleiner als die Tutor-Frage
   (`.mtg-question.small`), damit sie nicht wie eine Überschrift wirken.
 - **Übungskarten:** brechen bei schmalem Fenster um (mindestens 300 px pro
