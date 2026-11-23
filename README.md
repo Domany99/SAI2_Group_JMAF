@@ -388,6 +388,15 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   direkt von der Fachperson stammt.
 - **Sitzung:** pro Browser-Sitzung eine zufällige ID (`s-` plus 8 Hex), sie
   bleibt beim Wechsel der Übung gleich. `hook` im Log ist der Arm aus `HOOK`.
+- **Verlauf ohne Urteil:** Der Verlauf über der aktuellen Frage zeigt nur
+  Stufe, Frage und Antwort, kein «Teilweise» oder «Nicht erkannt». Der Tutor
+  darf Antworten nicht als richtig oder falsch werten (Prompt), also auch die
+  UI nicht. Die Testleitung sieht ihre Knöpfe im Modus `fixed` weiterhin.
+- **Abhängigkeiten vollständig gepinnt:** auch `streamlit` (1.67.0) und alle
+  Pakete, die es mitbringt, Stand 22.11.2026 mit Python 3.13. Geprüft in einer
+  frischen venv: `pip freeze` entspricht genau `requirements.txt`, `pip check`
+  ohne Fehler. `watchdog` nur ausserhalb von macOS, `colorama` nur unter
+  Windows, wie es die Pakete selbst verlangen.
 - **App-Tests:** `tests/test_app.py` spielt die App mit Streamlits
   `AppTest` durch (LLM gemockt, Log in `tmp_path`). `streamlit` ist schon
   eine Abhängigkeit.
