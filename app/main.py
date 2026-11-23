@@ -145,6 +145,12 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 .mtg-code-body div {{ display: flex; gap: 16px; min-height: 1.7em; }}
 .mtg-code-body .n {{ flex: none; width: 22px; text-align: right; color: #8b9bb0 !important; }}
 .mtg-code-body .t {{ white-space: pre; color: #e5e9ef; }}
+/* Streamlit macht Scrollbalken global durchsichtig. Lange Codezeilen (z. B.
+   beim Decoy und bei XSS) müssen aber sichtbar scrollbar sein. */
+.mtg-code-body {{ scrollbar-width: auto; scrollbar-color: {YELLOW} {NAVY}; }}
+.mtg-code-body::-webkit-scrollbar {{ height: 12px; }}
+.mtg-code-body::-webkit-scrollbar-track {{ background: {NAVY}; }}
+.mtg-code-body::-webkit-scrollbar-thumb {{ background: {YELLOW}; border-radius: 6px; }}
 
 /* Rechte Spalte: Tutor */
 .mtg-step {{ display: flex; align-items: center; gap: 10px; }}
@@ -155,6 +161,8 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 .mtg-step i {{ width: 14px; height: 14px; border-radius: 4px; border: 2px solid #8b95a3; box-sizing: border-box; display: inline-block; }}
 .mtg-step i.on {{ background: {NAVY}; border-color: {NAVY}; }}
 .mtg-question {{ font-family: 'Space Grotesk', sans-serif; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.15; font-weight: 700; margin: 8px 0 4px; }}
+/* Fragen der Beheben-Phase: kleiner als die Tutor-Frage, damit sie nicht wie eine Überschrift wirken. */
+.mtg-question.small {{ font-family: Inter, system-ui, sans-serif; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.35; font-weight: 600; margin: 4px 0 8px; }}
 .mtg-history {{ padding: 12px 14px; border-radius: 12px; background: #f3f4f6; margin-bottom: 10px; font-size: 14px; line-height: 1.45; }}
 .mtg-history .mtg-label {{ font-size: 12px; }}
 .mtg-answer {{ font-weight: 600; }}
@@ -238,6 +246,11 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 /* Startseite */
 .mtg-hero h1 {{ font-size: clamp(30px, 3.4vw, 48px) !important; line-height: 1.1; margin: 8px 0 12px; }}
 .mtg-hero p {{ font-size: 17px; line-height: 1.55; color: #374151; max-width: 760px; }}
+/* Übungskarten: bei schmalem Fenster umbrechen statt zusammenquetschen. */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-card_"]) {{ flex-wrap: wrap; row-gap: 16px; }}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-card_"]) > [data-testid="stColumn"] {{
+  flex: 1 1 300px !important; min-width: min(300px, 100%) !important;
+}}
 [class*="st-key-card_"] {{
   border: 2px solid {NAVY}; border-radius: 18px; padding: 24px; background: #ffffff;
 }}
@@ -386,7 +399,7 @@ def current_question(exercise: Exercise) -> str:
     if cached is None or cached.stage != state.stage:
         history = st.session_state.history
         previous = history[-1]["answer"] if history else None
-        with st.spinner("Der Tutor formuliert die nächste Frage …"):
+        with st.spinner("Der Tutor formuliert die nächste Frage … Das kann bis zu einer Minute dauern."):
             cached = session.ask_question(session_context(), exercise, state.stage, get_exercises(), previous)
         st.session_state.question = cached
     return cached.text
@@ -410,7 +423,7 @@ def record(exercise: Exercise, verdict: Verdict, question: str) -> None:
 
 def grade_pending(exercise: Exercise, question: str) -> None:
     """Bewertet die offene Antwort mit LLM 2. Bei einem Fehler bleibt sie stehen."""
-    with st.spinner("Deine Antwort wird ausgewertet …"):
+    with st.spinner("Deine Antwort wird ausgewertet … Das kann einen Moment dauern."):
         try:
             grading = session.grade_answer(
                 session_context(), exercise, st.session_state.state, st.session_state.pending
@@ -720,7 +733,7 @@ def show_fix_ask(exercise: Exercise) -> None:
         prompt = "Würdest du am Code trotzdem etwas ändern? Beschreib es in eigenen Worten, oder schreib, warum nicht."
     else:
         prompt = "Wie würdest du das beheben? Beschreib deinen Fix in eigenen Worten."
-    st.markdown(f'<div class="mtg-question">{esc(prompt)}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="mtg-question small">{esc(prompt)}</div>', unsafe_allow_html=True)
     with st.form("fix_form", clear_on_submit=False):
         st.text_area("Dein Vorschlag", key="fix_input", height=110, placeholder="Was würdest du ändern, und warum?")
         st.form_submit_button("Vorschlag senden", type="primary", on_click=submit_fix)
@@ -733,7 +746,7 @@ def show_fix_ask(exercise: Exercise) -> None:
 def show_fix_choose(exercise: Exercise) -> None:
     choices = exercise.close.fix_choices
     st.markdown(
-        '<div class="mtg-question">Welche Option würdest du wählen? Begründe deine Wahl in einem Satz.</div>',
+        '<div class="mtg-question small">Welche Option würdest du wählen? Begründe deine Wahl in einem Satz.</div>',
         unsafe_allow_html=True,
     )
     with st.form("fix_choice_form", clear_on_submit=False):
