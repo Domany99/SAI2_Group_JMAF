@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import html
 import os
+import random
 import sys
 from pathlib import Path
 
@@ -275,7 +276,15 @@ def esc(text: str) -> str:
 # --- Sitzungszustand -------------------------------------------------------
 
 
-EXERCISE_KEYS = ("exercise_id", "state", "history", "pending", "question", "grade_error")
+EXERCISE_KEYS = (
+    "exercise_id", "state", "history", "pending", "question", "grade_error",
+    "fix_step", "fix_order", "fix_own", "fix_pick", "fix_reason", "fix_error",
+)  # fmt: skip
+
+# Beheben-Phase nach dem Abschluss der Stufen (README, Entscheid "Fix-Auswahl"):
+# zuerst ein eigener Vorschlag, die Auswahl nur auf Wunsch, mit Begründung.
+FIX_ASK, FIX_CHOOSE, FIX_DONE = "ask", "choose", "done"
+FIX_VERDICT_LABELS = {"correct": "Passt", "partial": "Teilweise", "wrong": "Passt nicht"}
 
 
 def begin(exercise_id: str) -> None:
@@ -286,6 +295,14 @@ def begin(exercise_id: str) -> None:
     st.session_state.pending = None  # Antwort, die noch bewertet werden muss
     st.session_state.question = None  # nur MODE=llm: GuardedQuestion der aktuellen Stufe
     st.session_state.grade_error = None  # nur MODE=llm: Meldung, wenn der Grader nicht antwortet
+    st.session_state.fix_step = FIX_ASK
+    # Reihenfolge der Fix-Optionen einmal pro Start mischen: In der Datei steht
+    # die richtige Option oft zuerst, und Reruns sollen sie nicht neu mischen.
+    st.session_state.fix_order = random.sample(range(len(exercise.close.fix_choices)), len(exercise.close.fix_choices))
+    st.session_state.fix_own = None  # eigener Vorschlag der Person
+    st.session_state.fix_pick = None  # Index in close.fix_choices
+    st.session_state.fix_reason = None  # Begründung der Wahl
+    st.session_state.fix_error = None
 
 
 def back_to_selection() -> None:
@@ -312,6 +329,37 @@ def judge(verdict: Verdict) -> None:
 
 def leave_hook() -> None:
     st.session_state.state = finish_hook(st.session_state.state)
+
+
+def submit_fix() -> None:
+    """Eigener Fix-Vorschlag. Leer zählt nicht."""
+    own = st.session_state.get("fix_input", "").strip()
+    if not own:
+        st.session_state.fix_error = "Schreib zuerst deinen Vorschlag, oder lass dir Optionen zeigen."
+        return
+    st.session_state.fix_own = own
+    st.session_state.fix_error = None
+    st.session_state.fix_step = FIX_DONE
+
+
+def ask_for_fix_choices() -> None:
+    """Die Person findet keinen eigenen Fix. Ohne Optionen in der Übung direkt zur Lösung."""
+    exercise = get_exercises()[st.session_state.exercise_id]
+    st.session_state.fix_error = None
+    st.session_state.fix_step = FIX_CHOOSE if exercise.close.fix_choices else FIX_DONE
+
+
+def submit_fix_choice() -> None:
+    """Wahl aus den Optionen, nur mit Begründung."""
+    pick = st.session_state.get("fix_choice")
+    reason = st.session_state.get("fix_reason_input", "").strip()
+    if pick is None or not reason:
+        st.session_state.fix_error = "Wähl eine Option und begründe deine Wahl in einem Satz."
+        return
+    st.session_state.fix_pick = pick
+    st.session_state.fix_reason = reason
+    st.session_state.fix_error = None
+    st.session_state.fix_step = FIX_DONE
 
 
 # --- LLM-Modus -------------------------------------------------------------
@@ -490,10 +538,10 @@ def show_selection(exercises: dict[str, Exercise]) -> None:
         f"""
         <div class="mtg-hero">
           <span class="mtg-label">{esc(MODE_LABELS[MODE])}</span>
-          <h1>Findest du die unsichere Entscheidung?</h1>
+          <h1>Hält die Entscheidung der KI?</h1>
           <p>Jede Übung zeigt einen Kursauftrag, den Chat mit der KI und den Code, den die KI
-          geliefert hat. Der Tutor nennt die Lücke nicht. Er stellt dir bis zu drei Fragen,
-          die dich hinführen.</p>
+          geliefert hat. Der Tutor sagt dir nicht, ob und wo eine Lücke steckt. Er stellt dir
+          bis zu drei Fragen, die dich beim Prüfen leiten.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -627,7 +675,28 @@ def show_tutor(exercise: Exercise) -> None:
 
 
 def show_close(exercise: Exercise, outcome: Outcome | None, stage: int) -> None:
-    if outcome is Outcome.RECOGNIZED:
+    """Abschluss: Auflösung, dann Beheben-Phase, erst danach Fix und Prüfmuster."""
+    show_resolution(exercise, outcome, stage)
+    step = st.session_state.get("fix_step", FIX_DONE)
+    if step == FIX_ASK:
+        show_fix_ask(exercise)
+    elif step == FIX_CHOOSE:
+        show_fix_choose(exercise)
+    else:
+        show_fix_result(exercise)
+        show_fix_and_pattern(exercise)
+        left, right = st.columns(2)
+        left.button("Übung wiederholen", type="primary", on_click=begin, args=(exercise.id,), use_container_width=True)
+        right.button("Andere Übung wählen", on_click=back_to_selection, use_container_width=True, key="other")
+
+
+def show_resolution(exercise: Exercise, outcome: Outcome | None, stage: int) -> None:
+    if exercise.decoy:
+        if outcome is Outcome.RECOGNIZED:
+            label, title = f"Richtig beurteilt auf Stufe {stage}", "Richtig beurteilt: Der Code ist in Ordnung."
+        else:
+            label, title = f"Auflösung nach Stufe {LAST_STAGE}", "Der Code ist in Ordnung."
+    elif outcome is Outcome.RECOGNIZED:
         label, title = f"Lücke gefunden auf Stufe {stage}", "Du hast die Lücke gefunden!"
     else:
         label, title = f"Auflösung nach Stufe {LAST_STAGE}", "Das war die unsichere Entscheidung."
@@ -639,8 +708,85 @@ def show_close(exercise: Exercise, outcome: Outcome | None, stage: int) -> None:
           <p>{esc(exercise.answer_key.issue)}</p>
           <p style="color:#c9d1dc"><strong style="color:#ffffff">Folge:</strong> {esc(exercise.answer_key.consequence)}</p>
         </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def show_fix_ask(exercise: Exercise) -> None:
+    if exercise.decoy:
+        prompt = "Würdest du am Code trotzdem etwas ändern? Beschreib es in eigenen Worten, oder schreib, warum nicht."
+    else:
+        prompt = "Wie würdest du das beheben? Beschreib deinen Fix in eigenen Worten."
+    st.markdown(f'<div class="mtg-question">{esc(prompt)}</div>', unsafe_allow_html=True)
+    with st.form("fix_form", clear_on_submit=False):
+        st.text_area("Dein Vorschlag", key="fix_input", height=110, placeholder="Was würdest du ändern, und warum?")
+        st.form_submit_button("Vorschlag senden", type="primary", on_click=submit_fix)
+    if st.session_state.get("fix_error"):
+        st.caption(st.session_state.fix_error)
+    label = "Ich komme nicht weiter, zeig mir Optionen" if exercise.close.fix_choices else "Ich komme nicht weiter"
+    st.button(label, key="fix_help", on_click=ask_for_fix_choices)
+
+
+def show_fix_choose(exercise: Exercise) -> None:
+    choices = exercise.close.fix_choices
+    st.markdown(
+        '<div class="mtg-question">Welche Option würdest du wählen? Begründe deine Wahl in einem Satz.</div>',
+        unsafe_allow_html=True,
+    )
+    with st.form("fix_choice_form", clear_on_submit=False):
+        st.radio(
+            "Optionen",
+            options=st.session_state.fix_order,
+            index=None,
+            format_func=lambda i: choices[i].text,
+            key="fix_choice",
+            label_visibility="collapsed",
+        )
+        st.text_area("Deine Begründung", key="fix_reason_input", height=90, placeholder="Ich wähle das, weil …")
+        st.form_submit_button("Wahl senden", type="primary", on_click=submit_fix_choice)
+    if st.session_state.get("fix_error"):
+        st.caption(st.session_state.fix_error)
+
+
+def show_fix_result(exercise: Exercise) -> None:
+    """Was die Person in der Beheben-Phase gesagt oder gewählt hat."""
+    if st.session_state.get("fix_own"):
+        st.markdown(
+            '<div class="mtg-history"><span class="mtg-label">Dein Vorschlag</span><br>'
+            f'<span class="mtg-answer">„{esc(st.session_state.fix_own)}“</span><br>'
+            "Vergleich ihn mit dem Fix unten.</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    pick = st.session_state.get("fix_pick")
+    if pick is None:
+        return
+    choices = exercise.close.fix_choices
+    chosen = choices[pick]
+    st.markdown(
+        '<div class="mtg-history"><span class="mtg-label">Deine Wahl</span><br>'
+        f"{esc(chosen.text)}<br>"
+        f'<span class="mtg-answer">„{esc(st.session_state.fix_reason or "")}“</span><br>'
+        f"<strong>{esc(FIX_VERDICT_LABELS[chosen.verdict])}:</strong> {esc(chosen.reason)}</div>",
+        unsafe_allow_html=True,
+    )
+    with st.expander("Alle Optionen mit Begründung"):
+        for i in st.session_state.fix_order:
+            option = choices[i]
+            st.markdown(
+                f"<p><strong>{esc(FIX_VERDICT_LABELS[option.verdict])}:</strong> {esc(option.text)}<br>"
+                f"{esc(option.reason)}</p>",
+                unsafe_allow_html=True,
+            )
+
+
+def show_fix_and_pattern(exercise: Exercise) -> None:
+    heading = "Was zu tun ist" if exercise.decoy else "So behebst du es"
+    st.markdown(
+        f"""
         <div class="mtg-box">
-          <span class="mtg-label">So behebst du es</span>
+          <span class="mtg-label">{esc(heading)}</span>
           <p>{esc(exercise.close.fix)}</p>
         </div>
         <div class="mtg-pattern">
@@ -653,9 +799,6 @@ def show_close(exercise: Exercise, outcome: Outcome | None, stage: int) -> None:
         """,
         unsafe_allow_html=True,
     )
-    left, right = st.columns(2)
-    left.button("Übung wiederholen", type="primary", on_click=begin, args=(exercise.id,), use_container_width=True)
-    right.button("Andere Übung wählen", on_click=back_to_selection, use_container_width=True, key="other")
 
 
 def main() -> None:
