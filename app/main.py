@@ -82,7 +82,7 @@ html, body, .stApp, .stApp p, .stApp label, .stApp textarea, .stApp button {{
 header[data-testid="stHeader"] {{ display: none; }}
 :root {{ --pad: clamp(16px, 3.5vw, 56px); }}
 .block-container {{
-  padding: 0 var(--pad) 64px !important; max-width: none !important;
+  padding: 0 var(--pad) 64px !important; max-width: none !important; position: relative;
 }}
 h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; color: {NAVY}; letter-spacing: -0.01em; }}
 
@@ -92,6 +92,17 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
   margin: 0 calc(-1 * var(--pad)); padding: 14px var(--pad); background: {NAVY}; color: #ffffff;
 }}
 .mtg-logo {{ display: flex; align-items: center; gap: 6px; }}
+/* In der Übung führt ein Klick aufs Logo zur Übersicht. Der Streamlit-Knopf liegt
+   unsichtbar über dem Logo im Header, sein Text bleibt für Screenreader lesbar. */
+.st-key-logo_home {{ position: absolute; top: 24px; left: calc(var(--pad) - 6px); z-index: 20; width: auto !important; }}
+.st-key-logo_home button {{
+  width: 146px; min-height: 42px !important; height: 42px; padding: 0;
+  background: transparent !important; border: 2px solid transparent !important; box-shadow: none !important;
+  color: transparent !important; border-radius: 8px; cursor: pointer;
+}}
+.st-key-logo_home button:hover {{ border-color: {YELLOW} !important; }}
+.st-key-logo_home button:focus-visible {{ outline: 3px solid {YELLOW}; outline-offset: 2px; }}
+.st-key-logo_home button p {{ color: transparent !important; }}
 .mtg-logo b {{ font-family: 'Space Grotesk', sans-serif; font-size: 18px; }}
 .mtg-logo span {{
   font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px;
@@ -873,6 +884,7 @@ def main() -> None:
     progress = LAST_STAGE + 1 if state.done else max(state.stage, 1)
     number = list(exercises).index(exercise.id) + 1
     show_header(f"ÜBUNG {number:02d} · {exercise.title.upper()}", progress)
+    st.button("Zur Übungsübersicht", key="logo_home", on_click=back_to_selection)
 
     left, right = st.columns([11, 9], gap="large")
     with left:

@@ -240,3 +240,17 @@ def test_llm_mode_history_shows_no_verdict(
     assert ANSWER in text_of(at)  # die Antwort steht im Verlauf
     for label in ("Nicht erkannt", "Teilweise", "Erkannt"):
         assert label not in text_of(at)
+
+
+def test_logo_leads_back_to_overview(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    assert "STUFE 1 VON 3" in text_of(at)
+
+    at.button(key="logo_home").click().run()
+
+    assert not at.exception
+    assert "Hält die Entscheidung der KI?" in text_of(at)
+    assert "STUFE 1 VON 3" not in text_of(at)
+    assert at.button(key=f"start_{EXERCISE}")  # Übersicht mit den Übungskarten
