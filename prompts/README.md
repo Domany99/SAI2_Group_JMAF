@@ -12,6 +12,7 @@ werden sie mit `core.prompts.load_prompt(role, number)`, zum Beispiel
 | `tutor_v1.md` | ja | erste Version | I-06 |
 | `grader_v1.md` | nein | erste Version | I-06 |
 | `tutor_strict_v1.md` | ja | erste Version: Zusatz zum Tutor-Prompt für den zweiten Versuch nach einem Guard-Treffer, ohne Platzhalter | I-09 |
+| `tutor_v2.md` | nein | Abschnitt «Ton nach Vorwissen» geschärft: Grundsatz «nicht mehr nennen als der Hinweis, auch nicht als Erklärung, Beispiel oder Tipp»; `experienced` höchstens drei kurze Sätze, Feed up optional; `basics` nur das Werkzeug, nicht genauer als der Hint; `new` Begriffe allgemein erklären, keine Beispiele aus Code oder Übung aufzählen. Platzhalter wie v1. | Probeläufe vom 20.11.2026, Kandidaten T3, T4, T5 (`v2_candidates.md`) |
 | `grader_v2.md` | ja | Regel «Ein Fix ohne Begründung des Problems ist partial» und ein passendes Beispiel. Sonst identisch mit v1. | Probelauf 3: «textContent statt innerHTML» wurde fälschlich `recognized` (`docs/probelaeufe.md`, Lauf 3 und 4) |
 
 Beobachtungen für weitere Versionen sammelt `v2_candidates.md`.
@@ -54,7 +55,7 @@ Fehler. Escaping gibt es nicht.
 ohne Platzhalter dazu, gibt es einen `PromptError`. Eingesetzte Werte werden
 nicht erneut ersetzt.
 
-### `tutor_v1.md`
+### `tutor_v1.md` und `tutor_v2.md`
 
 | Platzhalter | Inhalt | Quelle |
 |---|---|---|

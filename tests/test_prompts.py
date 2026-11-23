@@ -37,6 +37,11 @@ def test_tutor_v1_placeholders() -> None:
     assert load_prompt("tutor", 1).placeholders == TUTOR_V1_PLACEHOLDERS
 
 
+def test_tutor_v2_keeps_placeholders_of_v1() -> None:
+    # v2 ändert nur den Ton nach Vorwissen, der Vertrag mit core/tutor.py bleibt gleich.
+    assert load_prompt("tutor", 2).placeholders == TUTOR_V1_PLACEHOLDERS
+
+
 @pytest.mark.parametrize("number", [1, 2])
 def test_grader_placeholders(number: int) -> None:
     # v2 ändert nur die Rubrik, der Vertrag mit core/grader.py bleibt gleich.

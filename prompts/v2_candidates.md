@@ -32,7 +32,7 @@ Läufe vor dem 20.11.2026 (I-18) kamen teilweise aus dem Cache des Proxys.
 - **Beispiel:** Stufe 2, `api-key-frontend`, `experienced`: drei Sätze («Dass der Quellcode … Hier geht es aber … Öffne den Netzwerk-Tab …»).
 - **Vermutete Ursache:** Feed back, Feed up und Feed forward sind drei Teile; bei `experienced` passen sie nicht in zwei Sätze. Die Regeln widersprechen sich.
 - **Idee:** Bei `experienced` Feed up weglassen oder die Grenze auf «höchstens drei kurze Sätze» setzen.
-- **Status:** offen
+- **Status:** in `tutor_v2` umgesetzt (nicht Default), Probelauf v1 gegen v2 offen
 
 ### T4: Erklärungen für `new` erhöhen die Leak-Rate
 
@@ -40,7 +40,7 @@ Läufe vor dem 20.11.2026 (I-18) kamen teilweise aus dem Cache des Proxys.
 - **Beispiel:** Stufe 1, `strapi-auth-false`, `new`: «… welche konkreten Handlungen wie ein Eintrag anlegen, ändern oder löschen …» (Guard: «löschen», «ändern»). Derselbe Leak schon im Lauf davor.
 - **Vermutete Ursache:** Die Ton-Regel für `new` verlangt, Begriffe zu erklären. Beim Erklären von «Aktionen» zählt das Modell die Aktionen auf, und damit genau die verbotenen Wörter.
 - **Idee:** «Erkläre Begriffe, ohne Beispiele aus dem Code aufzuzählen.» Leak-Rate pro Einstufung in der Evaluation getrennt ausweisen.
-- **Status:** offen, betrifft auch I-09 (Leak Guard fängt es ab)
+- **Status:** in `tutor_v2` umgesetzt (nicht Default), Probelauf v1 gegen v2 offen
 
 ### T5: Tipps nennen Wörter, die der Hint vermeidet
 
@@ -48,7 +48,7 @@ Läufe vor dem 20.11.2026 (I-18) kamen teilweise aus dem Cache des Proxys.
 - **Beispiel:** Stufe 1, `xss-projektsuche`, `basics`: «(Tipp: … wo im HTML-Code der Begriff eingefügt wird.)» (Guard: «HTML»).
 - **Vermutete Ursache:** Die Ton-Regel für `basics` verlangt «einen kurzen Hinweis, wo man nachschauen kann». Das Modell konkretisiert den Ort über den Hint hinaus.
 - **Idee:** «Der Hinweis, wo man nachschaut, darf nicht konkreter sein als der Hint der Fachperson.»
-- **Status:** offen
+- **Status:** in `tutor_v2` umgesetzt (nicht Default), Probelauf v1 gegen v2 offen
 
 ## Grader
 
