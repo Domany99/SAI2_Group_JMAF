@@ -25,6 +25,7 @@ Warnstreifen). Die Styles stehen in `CSS` unten, das Theme in
 
 from __future__ import annotations
 
+import copy
 import html
 import os
 import random
@@ -265,6 +266,14 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 [class*="st-key-card_"] {{
   border: 2px solid {NAVY}; border-radius: 18px; padding: 24px; background: #ffffff;
 }}
+.mtg-card-top {{ display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }}
+.mtg-status {{
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+}}
+.mtg-status.open {{ border: 2px solid #c3c9d2; color: #4b5563; }}
+.mtg-status.started {{ background: {YELLOW}; color: {NAVY}; border: 2px solid {NAVY}; }}
+.mtg-status.done {{ background: {NAVY}; color: {YELLOW}; border: 2px solid {NAVY}; }}
 [class*="st-key-card_"] h3 {{ font-size: 22px; margin: 6px 0 8px; }}
 [class*="st-key-card_"] p {{ color: #374151; font-size: 15px; line-height: 1.5; }}
 
@@ -328,7 +337,58 @@ def begin(exercise_id: str) -> None:
     st.session_state.fix_error = None
 
 
+# Status pro Übung (Issue: angefangen, erledigt, offen). Beim Verlassen einer Übung
+# wird ihr Stand gemerkt, ein Klick auf die Karte macht dort weiter. Der Stand lebt
+# nur in der Browser-Sitzung, wie die Einstufung (development.md: keine Persistenz
+# über die JSONL-Logs hinaus).
+STATUS_OPEN, STATUS_STARTED, STATUS_DONE = "open", "started", "done"
+
+
+def saved_runs() -> dict[str, dict]:
+    if "saved_runs" not in st.session_state:
+        st.session_state.saved_runs = {}
+    return st.session_state.saved_runs
+
+
+def save_current_run() -> None:
+    """Merkt den Stand der offenen Übung, damit man später weitermachen kann."""
+    exercise_id = st.session_state.get("exercise_id")
+    if exercise_id is None:
+        return
+    saved_runs()[exercise_id] = {key: copy.deepcopy(st.session_state.get(key)) for key in EXERCISE_KEYS}
+
+
+def run_status(exercise_id: str) -> str:
+    run = saved_runs().get(exercise_id)
+    if run is None:
+        return STATUS_OPEN
+    if run["state"].done and run["fix_step"] == FIX_DONE:
+        return STATUS_DONE
+    return STATUS_STARTED
+
+
+def run_position(exercise_id: str) -> str:
+    """Wo eine angefangene Übung steht, für die Karte."""
+    state = saved_runs()[exercise_id]["state"]
+    if state.done:
+        return "Beheben"
+    if state.in_hook:
+        return "Einstieg"
+    return f"Stufe {state.stage} von {LAST_STAGE}"
+
+
+def resume(exercise_id: str) -> None:
+    """Macht bei einer angefangenen oder erledigten Übung weiter, sonst Neustart."""
+    run = saved_runs().get(exercise_id)
+    if run is None:
+        begin(exercise_id)
+        return
+    for key, value in run.items():
+        st.session_state[key] = copy.deepcopy(value)
+
+
 def back_to_selection() -> None:
+    save_current_run()
     for key in EXERCISE_KEYS:
         st.session_state.pop(key, None)
 
@@ -552,6 +612,14 @@ def show_welcome() -> None:
                 st.caption("Wähl zuerst eine Stufe aus. Erst danach kannst du eine Übung starten.")
 
 
+def status_chip(exercise_id: str, status: str) -> str:
+    if status == STATUS_DONE:
+        return '<span class="mtg-status done">✓ Erledigt</span>'
+    if status == STATUS_STARTED:
+        return f'<span class="mtg-status started">Angefangen · {esc(run_position(exercise_id))}</span>'
+    return '<span class="mtg-status open">Offen</span>'
+
+
 def show_selection(exercises: dict[str, Exercise]) -> None:
     level = st.session_state.level
     show_header(f"SECURITY-TUTOR · VORWISSEN: {LEVELS[level].title.upper()}")
@@ -573,19 +641,28 @@ def show_selection(exercises: dict[str, Exercise]) -> None:
     for index, (exercise_id, exercise) in enumerate(exercises.items()):
         with columns[index % len(columns)]:
             with st.container(key=f"card_{exercise_id}"):
+                status = run_status(exercise_id)
                 st.markdown(
-                    f'<span class="mtg-label">Übung {index + 1:02d}</span>'
+                    f'<div class="mtg-card-top"><span class="mtg-label">Übung {index + 1:02d}</span>'
+                    f"{status_chip(exercise_id, status)}</div>"
                     f"<h3>{esc(exercise.title)}</h3>"
                     f"<p>{esc(exercise.scenario.requirement)}</p>",
                     unsafe_allow_html=True,
                 )
+                label = {
+                    STATUS_OPEN: "Übung starten →",
+                    STATUS_STARTED: "Weitermachen →",
+                    STATUS_DONE: "Ergebnis ansehen",
+                }[status]
                 st.button(
-                    "Übung starten →",
+                    label,
                     key=f"start_{exercise_id}",
-                    type="primary",
-                    on_click=begin,
+                    type="secondary" if status == STATUS_DONE else "primary",
+                    on_click=resume,
                     args=(exercise_id,),
                 )
+                if status == STATUS_DONE:
+                    st.button("Neu starten", key=f"restart_{exercise_id}", on_click=begin, args=(exercise_id,))
 
 
 def show_scenario(exercise: Exercise) -> None:

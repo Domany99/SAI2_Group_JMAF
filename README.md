@@ -415,3 +415,11 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   (`.mtg-question.small`), damit sie nicht wie eine Überschrift wirken.
 - **Übungskarten:** brechen bei schmalem Fenster um (mindestens 300 px pro
   Karte), statt in drei schmale Spalten gequetscht zu werden.
+- **Status pro Übung:** Die Karten in der Übersicht zeigen „Offen“,
+  „Angefangen · Stufe n von 3“ (bzw. „Beheben“) oder „Erledigt“. Beim
+  Verlassen einer Übung (Logo, „Übung verlassen“, „Andere Übung wählen“) merkt
+  sich die App den Stand, ein Klick auf „Weitermachen“ macht genau dort weiter.
+  Erledigt heisst: Stufen und Beheben-Phase abgeschlossen. Erledigte Übungen
+  lassen sich ansehen oder neu starten. Der Stand lebt nur in der
+  Browser-Sitzung wie die Einstufung, nach einem Neuladen ist er weg
+  (development.md: keine Persistenz über die JSONL-Logs hinaus).
