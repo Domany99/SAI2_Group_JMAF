@@ -715,7 +715,7 @@ def show_tutor(exercise: Exercise) -> None:
     state = st.session_state.state
 
     top_left, top_right = st.columns([3, 2])
-    top_left.markdown('<span class="mtg-label">Dein Tutor · fragt, verrät nichts</span>', unsafe_allow_html=True)
+    top_left.markdown('<span class="mtg-label">Dein Tutor · Fragen statt Antworten</span>', unsafe_allow_html=True)
     top_right.button("Übung verlassen", on_click=back_to_selection, key="leave", use_container_width=True)
 
     if state.in_hook:
