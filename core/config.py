@@ -37,7 +37,8 @@ class LLMConfig(BaseModel):
     # Tutor (LLM 1). 0.7 wie im Log-Beispiel der Spezifikation. Das Eval-Grid
     # überschreibt Temperatur und Prompt-Version pro Aufruf.
     tutor_temperature: float = Field(default=0.7, ge=0, le=2)
-    tutor_prompt_version: int = Field(default=1, ge=1)
+    # v2 seit 23.11.2026: Probeläufe 7 und 8 (docs/probelaeufe.md), 0 statt 1 Guard-Treffer von 12.
+    tutor_prompt_version: int = Field(default=2, ge=1)
     # Version von prompts/tutor_strict_v<n>.md für den zweiten Versuch nach einem Guard-Treffer.
     tutor_strict_version: int = Field(default=1, ge=1)
     # Grader (LLM 2): tiefe Temperatur (Spezifikation), 0 für reproduzierbare Urteile.
