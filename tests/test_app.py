@@ -224,3 +224,106 @@ def test_unknown_mode_shows_error(monkeypatch: pytest.MonkeyPatch, log_dir: Path
     at.run()
     [error] = at.error
     assert "MODE='turbo'" in error.value
+
+
+def test_llm_mode_history_shows_no_verdict(
+    monkeypatch: pytest.MonkeyPatch, llm_mode: None, log_dir: Path
+) -> None:
+    # Der Tutor darf Antworten nicht als richtig oder falsch werten, also auch die UI nicht.
+    monkeypatch.setattr(tutor, "chat", Scripted(TUTOR_QUESTION, "Zweite Frage?"))
+    monkeypatch.setattr(grader, "chat", Scripted(verdict_json("not", "Den Key")))
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    answer(at)
+
+    assert "STUFE 2 VON 3" in text_of(at)
+    assert ANSWER in text_of(at)  # die Antwort steht im Verlauf
+    for label in ("Nicht erkannt", "Teilweise", "Erkannt"):
+        assert label not in text_of(at)
+
+
+def test_logo_leads_back_to_overview(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    assert "STUFE 1 VON 3" in text_of(at)
+
+    at.button(key="logo_home").click().run()
+
+    assert not at.exception
+    assert "Hält die Entscheidung der KI?" in text_of(at)
+    assert "STUFE 1 VON 3" not in text_of(at)
+    assert at.button(key=f"start_{EXERCISE}")  # Übersicht mit den Übungskarten
+
+
+# --- Status pro Übung -------------------------------------------------------
+
+
+def back_home(at: AppTest) -> None:
+    at.button(key="logo_home").click().run()
+
+
+def test_cards_show_open_status_at_start(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    at.run()
+    at.radio(key="level_choice").set_value("basics").run()
+    next(b for b in at.button if b.label.startswith("Weiter")).click().run()
+
+    assert "Offen" in text_of(at)
+    assert "Angefangen" not in text_of(at)
+    assert "Erledigt" not in text_of(at)
+    assert at.button(key=f"start_{EXERCISE}").label == "Übung starten →"
+
+
+def test_started_exercise_resumes_at_same_stage(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    answer(at)
+    at.button(key="verdict_partial").click().run()
+    assert "STUFE 2 VON 3" in text_of(at)
+
+    back_home(at)
+    assert "Angefangen · Stufe 2 von 3" in text_of(at)
+    assert at.button(key=f"start_{EXERCISE}").label == "Weitermachen →"
+
+    at.button(key=f"start_{EXERCISE}").click().run()
+    assert not at.exception
+    assert "STUFE 2 VON 3" in text_of(at)
+    assert ANSWER in text_of(at)  # Verlauf von Stufe 1 ist noch da
+
+
+def test_finished_exercise_shows_done_and_can_restart(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    answer(at)
+    at.button(key="verdict_recognized").click().run()
+    at.text_area(key="fix_input").input("Key auf den Server verschieben.")
+    at.button(key="FormSubmitter:fix_form-Vorschlag senden").click().run()
+
+    back_home(at)
+    assert "Erledigt" in text_of(at)
+    assert at.button(key=f"start_{EXERCISE}").label == "Ergebnis ansehen"
+
+    at.button(key=f"start_{EXERCISE}").click().run()  # Ergebnis bleibt erhalten
+    assert "Prüfmuster zum Mitnehmen" in text_of(at)
+
+    back_home(at)
+    at.button(key=f"restart_{EXERCISE}").click().run()  # Neustart bei Stufe 1
+    assert "STUFE 1 VON 3" in text_of(at)
+    assert ANSWER not in text_of(at)
+
+
+def test_fix_phase_counts_as_started(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    answer(at)
+    at.button(key="verdict_recognized").click().run()  # Stufen fertig, Beheben offen
+
+    back_home(at)
+    assert "Angefangen · Beheben" in text_of(at)
+    at.button(key=f"start_{EXERCISE}").click().run()
+    assert at.text_area(key="fix_input")  # wieder in der Beheben-Phase

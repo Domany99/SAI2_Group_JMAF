@@ -37,8 +37,9 @@ Zwei Modi über die Variable `MODE` (in `.env` oder als Umgebungsvariable):
   (LLM 1) über den Leak Guard, die Antwort bewertet der Grader (LLM 2).
   Jeder Turn (Tutor, Antwort, Grader, Hint-Fallback) wird nach
   `logs/<YYYY-MM-DD>.jsonl` geloggt. Braucht eine gültige `.env` mit
-  API-Key und ausserhalb des BFH-Netzes VPN. Eine Frage dauert 15 bis 40 s,
-  während der Wartezeit zeigt die App einen Ladehinweis.
+  API-Key und ausserhalb des BFH-Netzes VPN. Eine Frage dauert 15 bis 114 s
+  (Probeläufe), während der Wartezeit zeigt die App einen Ladehinweis mit
+  dem Zusatz, dass es bis zu einer Minute dauern kann.
 - **`MODE=fixed`:** Schritt 2, für Tests und als Notfall. Die Fragen sind die
   `hint`s aus den Übungsdateien, jede Antwort beurteilt die **Testleitung**
   per Knopf (Erkannt, Teilweise, Nicht erkannt). Kein LLM, kein Log.
@@ -388,6 +389,15 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   direkt von der Fachperson stammt.
 - **Sitzung:** pro Browser-Sitzung eine zufällige ID (`s-` plus 8 Hex), sie
   bleibt beim Wechsel der Übung gleich. `hook` im Log ist der Arm aus `HOOK`.
+- **Verlauf ohne Urteil:** Der Verlauf über der aktuellen Frage zeigt nur
+  Stufe, Frage und Antwort, kein «Teilweise» oder «Nicht erkannt». Der Tutor
+  darf Antworten nicht als richtig oder falsch werten (Prompt), also auch die
+  UI nicht. Die Testleitung sieht ihre Knöpfe im Modus `fixed` weiterhin.
+- **Abhängigkeiten vollständig gepinnt:** auch `streamlit` (1.67.0) und alle
+  Pakete, die es mitbringt, Stand 22.11.2026 mit Python 3.13. Geprüft in einer
+  frischen venv: `pip freeze` entspricht genau `requirements.txt`, `pip check`
+  ohne Fehler. `watchdog` nur ausserhalb von macOS, `colorama` nur unter
+  Windows, wie es die Pakete selbst verlangen.
 - **App-Tests:** `tests/test_app.py` spielt die App mit Streamlits
   `AppTest` durch (LLM gemockt, Log in `tmp_path`). `streamlit` ist schon
   eine Abhängigkeit.
@@ -398,3 +408,18 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Import-Pfad der App:** `streamlit run app/main.py` legt nur `app/` in den
   Suchpfad. `app/main.py` ergänzt deshalb den Repo-Hauptordner, damit
   `import core` funktioniert, auch auf Streamlit Community Cloud.
+- **Scrollbalken im Code:** Streamlit macht Scrollbalken global durchsichtig.
+  Im Code-Fenster ist der horizontale Balken deshalb gelb auf Navy gesetzt,
+  damit lange Zeilen (Decoy, XSS) sichtbar scrollbar sind.
+- **Fragen der Beheben-Phase:** kleiner als die Tutor-Frage
+  (`.mtg-question.small`), damit sie nicht wie eine Überschrift wirken.
+- **Übungskarten:** brechen bei schmalem Fenster um (mindestens 300 px pro
+  Karte), statt in drei schmale Spalten gequetscht zu werden.
+- **Status pro Übung:** Die Karten in der Übersicht zeigen „Offen“,
+  „Angefangen · Stufe n von 3“ (bzw. „Beheben“) oder „Erledigt“. Beim
+  Verlassen einer Übung (Logo, „Übung verlassen“, „Andere Übung wählen“) merkt
+  sich die App den Stand, ein Klick auf „Weitermachen“ macht genau dort weiter.
+  Erledigt heisst: Stufen und Beheben-Phase abgeschlossen. Erledigte Übungen
+  lassen sich ansehen oder neu starten. Der Stand lebt nur in der
+  Browser-Sitzung wie die Einstufung, nach einem Neuladen ist er weg
+  (development.md: keine Persistenz über die JSONL-Logs hinaus).

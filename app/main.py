@@ -25,6 +25,7 @@ Warnstreifen). Die Styles stehen in `CSS` unten, das Theme in
 
 from __future__ import annotations
 
+import copy
 import html
 import os
 import random
@@ -66,7 +67,6 @@ VERDICT_BUTTONS = [
     (Verdict.PARTIAL, "Teilweise"),
     (Verdict.NOT, "Nicht erkannt"),
 ]
-VERDICT_LABELS = dict(VERDICT_BUTTONS)
 
 NAVY = "#0b1726"
 PANEL = "#0f1f33"
@@ -83,7 +83,7 @@ html, body, .stApp, .stApp p, .stApp label, .stApp textarea, .stApp button {{
 header[data-testid="stHeader"] {{ display: none; }}
 :root {{ --pad: clamp(16px, 3.5vw, 56px); }}
 .block-container {{
-  padding: 0 var(--pad) 64px !important; max-width: none !important;
+  padding: 0 var(--pad) 64px !important; max-width: none !important; position: relative;
 }}
 h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; color: {NAVY}; letter-spacing: -0.01em; }}
 
@@ -93,6 +93,17 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
   margin: 0 calc(-1 * var(--pad)); padding: 14px var(--pad); background: {NAVY}; color: #ffffff;
 }}
 .mtg-logo {{ display: flex; align-items: center; gap: 6px; }}
+/* In der Übung führt ein Klick aufs Logo zur Übersicht. Der Streamlit-Knopf liegt
+   unsichtbar über dem Logo im Header, sein Text bleibt für Screenreader lesbar. */
+.st-key-logo_home {{ position: absolute; top: 24px; left: calc(var(--pad) - 6px); z-index: 20; width: auto !important; }}
+.st-key-logo_home button {{
+  width: 146px; min-height: 42px !important; height: 42px; padding: 0;
+  background: transparent !important; border: 2px solid transparent !important; box-shadow: none !important;
+  color: transparent !important; border-radius: 8px; cursor: pointer;
+}}
+.st-key-logo_home button:hover {{ border-color: {YELLOW} !important; }}
+.st-key-logo_home button:focus-visible {{ outline: 3px solid {YELLOW}; outline-offset: 2px; }}
+.st-key-logo_home button p {{ color: transparent !important; }}
 .mtg-logo b {{ font-family: 'Space Grotesk', sans-serif; font-size: 18px; }}
 .mtg-logo span {{
   font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px;
@@ -146,6 +157,12 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 .mtg-code-body div {{ display: flex; gap: 16px; min-height: 1.7em; }}
 .mtg-code-body .n {{ flex: none; width: 22px; text-align: right; color: #8b9bb0 !important; }}
 .mtg-code-body .t {{ white-space: pre; color: #e5e9ef; }}
+/* Streamlit macht Scrollbalken global durchsichtig. Lange Codezeilen (z. B.
+   beim Decoy und bei XSS) müssen aber sichtbar scrollbar sein. */
+.mtg-code-body {{ scrollbar-width: auto; scrollbar-color: {YELLOW} {NAVY}; }}
+.mtg-code-body::-webkit-scrollbar {{ height: 12px; }}
+.mtg-code-body::-webkit-scrollbar-track {{ background: {NAVY}; }}
+.mtg-code-body::-webkit-scrollbar-thumb {{ background: {YELLOW}; border-radius: 6px; }}
 
 /* Rechte Spalte: Tutor */
 .mtg-step {{ display: flex; align-items: center; gap: 10px; }}
@@ -156,6 +173,8 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 .mtg-step i {{ width: 14px; height: 14px; border-radius: 4px; border: 2px solid #8b95a3; box-sizing: border-box; display: inline-block; }}
 .mtg-step i.on {{ background: {NAVY}; border-color: {NAVY}; }}
 .mtg-question {{ font-family: 'Space Grotesk', sans-serif; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.15; font-weight: 700; margin: 8px 0 4px; }}
+/* Fragen der Beheben-Phase: kleiner als die Tutor-Frage, damit sie nicht wie eine Überschrift wirken. */
+.mtg-question.small {{ font-family: Inter, system-ui, sans-serif; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.35; font-weight: 600; margin: 4px 0 8px; }}
 .mtg-history {{ padding: 12px 14px; border-radius: 12px; background: #f3f4f6; margin-bottom: 10px; font-size: 14px; line-height: 1.45; }}
 .mtg-history .mtg-label {{ font-size: 12px; }}
 .mtg-answer {{ font-weight: 600; }}
@@ -239,9 +258,22 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
 /* Startseite */
 .mtg-hero h1 {{ font-size: clamp(30px, 3.4vw, 48px) !important; line-height: 1.1; margin: 8px 0 12px; }}
 .mtg-hero p {{ font-size: 17px; line-height: 1.55; color: #374151; max-width: 760px; }}
+/* Übungskarten: bei schmalem Fenster umbrechen statt zusammenquetschen. */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-card_"]) {{ flex-wrap: wrap; row-gap: 16px; }}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-card_"]) > [data-testid="stColumn"] {{
+  flex: 1 1 300px !important; min-width: min(300px, 100%) !important;
+}}
 [class*="st-key-card_"] {{
   border: 2px solid {NAVY}; border-radius: 18px; padding: 24px; background: #ffffff;
 }}
+.mtg-card-top {{ display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }}
+.mtg-status {{
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+}}
+.mtg-status.open {{ border: 2px solid #c3c9d2; color: #4b5563; }}
+.mtg-status.started {{ background: {YELLOW}; color: {NAVY}; border: 2px solid {NAVY}; }}
+.mtg-status.done {{ background: {NAVY}; color: {YELLOW}; border: 2px solid {NAVY}; }}
 [class*="st-key-card_"] h3 {{ font-size: 22px; margin: 6px 0 8px; }}
 [class*="st-key-card_"] p {{ color: #374151; font-size: 15px; line-height: 1.5; }}
 
@@ -305,7 +337,58 @@ def begin(exercise_id: str) -> None:
     st.session_state.fix_error = None
 
 
+# Status pro Übung (Issue: angefangen, erledigt, offen). Beim Verlassen einer Übung
+# wird ihr Stand gemerkt, ein Klick auf die Karte macht dort weiter. Der Stand lebt
+# nur in der Browser-Sitzung, wie die Einstufung (development.md: keine Persistenz
+# über die JSONL-Logs hinaus).
+STATUS_OPEN, STATUS_STARTED, STATUS_DONE = "open", "started", "done"
+
+
+def saved_runs() -> dict[str, dict]:
+    if "saved_runs" not in st.session_state:
+        st.session_state.saved_runs = {}
+    return st.session_state.saved_runs
+
+
+def save_current_run() -> None:
+    """Merkt den Stand der offenen Übung, damit man später weitermachen kann."""
+    exercise_id = st.session_state.get("exercise_id")
+    if exercise_id is None:
+        return
+    saved_runs()[exercise_id] = {key: copy.deepcopy(st.session_state.get(key)) for key in EXERCISE_KEYS}
+
+
+def run_status(exercise_id: str) -> str:
+    run = saved_runs().get(exercise_id)
+    if run is None:
+        return STATUS_OPEN
+    if run["state"].done and run["fix_step"] == FIX_DONE:
+        return STATUS_DONE
+    return STATUS_STARTED
+
+
+def run_position(exercise_id: str) -> str:
+    """Wo eine angefangene Übung steht, für die Karte."""
+    state = saved_runs()[exercise_id]["state"]
+    if state.done:
+        return "Beheben"
+    if state.in_hook:
+        return "Einstieg"
+    return f"Stufe {state.stage} von {LAST_STAGE}"
+
+
+def resume(exercise_id: str) -> None:
+    """Macht bei einer angefangenen oder erledigten Übung weiter, sonst Neustart."""
+    run = saved_runs().get(exercise_id)
+    if run is None:
+        begin(exercise_id)
+        return
+    for key, value in run.items():
+        st.session_state[key] = copy.deepcopy(value)
+
+
 def back_to_selection() -> None:
+    save_current_run()
     for key in EXERCISE_KEYS:
         st.session_state.pop(key, None)
 
@@ -387,7 +470,7 @@ def current_question(exercise: Exercise) -> str:
     if cached is None or cached.stage != state.stage:
         history = st.session_state.history
         previous = history[-1]["answer"] if history else None
-        with st.spinner("Der Tutor formuliert die nächste Frage …"):
+        with st.spinner("Der Tutor formuliert die nächste Frage … Das kann bis zu einer Minute dauern."):
             cached = session.ask_question(session_context(), exercise, state.stage, get_exercises(), previous)
         st.session_state.question = cached
     return cached.text
@@ -411,7 +494,7 @@ def record(exercise: Exercise, verdict: Verdict, question: str) -> None:
 
 def grade_pending(exercise: Exercise, question: str) -> None:
     """Bewertet die offene Antwort mit LLM 2. Bei einem Fehler bleibt sie stehen."""
-    with st.spinner("Deine Antwort wird ausgewertet …"):
+    with st.spinner("Deine Antwort wird ausgewertet … Das kann einen Moment dauern."):
         try:
             grading = session.grade_answer(
                 session_context(), exercise, st.session_state.state, st.session_state.pending
@@ -529,6 +612,14 @@ def show_welcome() -> None:
                 st.caption("Wähl zuerst eine Stufe aus. Erst danach kannst du eine Übung starten.")
 
 
+def status_chip(exercise_id: str, status: str) -> str:
+    if status == STATUS_DONE:
+        return '<span class="mtg-status done">✓ Erledigt</span>'
+    if status == STATUS_STARTED:
+        return f'<span class="mtg-status started">Angefangen · {esc(run_position(exercise_id))}</span>'
+    return '<span class="mtg-status open">Offen</span>'
+
+
 def show_selection(exercises: dict[str, Exercise]) -> None:
     level = st.session_state.level
     show_header(f"SECURITY-TUTOR · VORWISSEN: {LEVELS[level].title.upper()}")
@@ -550,19 +641,28 @@ def show_selection(exercises: dict[str, Exercise]) -> None:
     for index, (exercise_id, exercise) in enumerate(exercises.items()):
         with columns[index % len(columns)]:
             with st.container(key=f"card_{exercise_id}"):
+                status = run_status(exercise_id)
                 st.markdown(
-                    f'<span class="mtg-label">Übung {index + 1:02d}</span>'
+                    f'<div class="mtg-card-top"><span class="mtg-label">Übung {index + 1:02d}</span>'
+                    f"{status_chip(exercise_id, status)}</div>"
                     f"<h3>{esc(exercise.title)}</h3>"
                     f"<p>{esc(exercise.scenario.requirement)}</p>",
                     unsafe_allow_html=True,
                 )
+                label = {
+                    STATUS_OPEN: "Übung starten →",
+                    STATUS_STARTED: "Weitermachen →",
+                    STATUS_DONE: "Ergebnis ansehen",
+                }[status]
                 st.button(
-                    "Übung starten →",
+                    label,
                     key=f"start_{exercise_id}",
-                    type="primary",
-                    on_click=begin,
+                    type="secondary" if status == STATUS_DONE else "primary",
+                    on_click=resume,
                     args=(exercise_id,),
                 )
+                if status == STATUS_DONE:
+                    st.button("Neu starten", key=f"restart_{exercise_id}", on_click=begin, args=(exercise_id,))
 
 
 def show_scenario(exercise: Exercise) -> None:
@@ -591,11 +691,13 @@ def show_step_badge(stage: int) -> None:
 
 
 def show_history() -> None:
+    # Ohne Urteil: Der Tutor darf Antworten nicht als richtig oder falsch werten,
+    # also zeigt auch der Verlauf kein "Teilweise" oder "Nicht erkannt".
     for turn in st.session_state.history:
         st.markdown(
             f"""
             <div class="mtg-history">
-              <span class="mtg-label">Stufe {turn['stage']} · {esc(VERDICT_LABELS[turn['verdict']])}</span><br>
+              <span class="mtg-label">Stufe {turn['stage']}</span><br>
               {esc(turn['question'])}<br>
               <span class="mtg-answer">„{esc(turn['answer'])}“</span>
             </div>
@@ -719,7 +821,7 @@ def show_fix_ask(exercise: Exercise) -> None:
         prompt = "Würdest du am Code trotzdem etwas ändern? Beschreib es in eigenen Worten, oder schreib, warum nicht."
     else:
         prompt = "Wie würdest du das beheben? Beschreib deinen Fix in eigenen Worten."
-    st.markdown(f'<div class="mtg-question">{esc(prompt)}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="mtg-question small">{esc(prompt)}</div>', unsafe_allow_html=True)
     with st.form("fix_form", clear_on_submit=False):
         st.text_area("Dein Vorschlag", key="fix_input", height=110, placeholder="Was würdest du ändern, und warum?")
         st.form_submit_button("Vorschlag senden", type="primary", on_click=submit_fix)
@@ -732,7 +834,7 @@ def show_fix_ask(exercise: Exercise) -> None:
 def show_fix_choose(exercise: Exercise) -> None:
     choices = exercise.close.fix_choices
     st.markdown(
-        '<div class="mtg-question">Welche Option würdest du wählen? Begründe deine Wahl in einem Satz.</div>',
+        '<div class="mtg-question small">Welche Option würdest du wählen? Begründe deine Wahl in einem Satz.</div>',
         unsafe_allow_html=True,
     )
     with st.form("fix_choice_form", clear_on_submit=False):
@@ -859,6 +961,7 @@ def main() -> None:
     progress = LAST_STAGE + 1 if state.done else max(state.stage, 1)
     number = list(exercises).index(exercise.id) + 1
     show_header(f"ÜBUNG {number:02d} · {exercise.title.upper()}", progress)
+    st.button("Zur Übungsübersicht", key="logo_home", on_click=back_to_selection)
 
     left, right = st.columns([11, 9], gap="large")
     with left:
