@@ -112,6 +112,20 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   `verdict` (`correct`, `partial`, `wrong`) und `reason`. Wenn vorhanden,
   mindestens 2 Optionen und mindestens eine `correct`. Erscheint erst nach dem
   Erkennen und nur, wenn die Person keinen eigenen Fix findet.
+- **Beheben-Phase:** Nach dem Abschluss der Stufen (erkannt oder nach Stufe 3
+  aufgelöst) zeigt die App zuerst Lücke und Folge, dann die Frage nach einem
+  eigenen Fix. Erst nach dem eigenen Vorschlag oder dem Knopf «Ich komme nicht
+  weiter» erscheinen Fix und Prüfmuster. Mit dem Knopf kommen zuerst die
+  `fix_choices`, in pro Start gemischter Reihenfolge (die richtige Option steht
+  in den Dateien oft zuerst). Eine Wahl zählt nur mit Begründung; danach zeigt
+  die App das Urteil («Passt», «Teilweise», «Passt nicht») mit `reason` und
+  alle Optionen mit Begründung. Der eigene Vorschlag wird nicht bewertet, die
+  Person vergleicht ihn selbst mit dem Fix. Bei Decoys lauten Titel und Frage
+  anders («Der Code ist in Ordnung», «Würdest du trotzdem etwas ändern?»).
+  Läuft in `MODE=fixed` und `MODE=llm` gleich, ohne LLM.
+- **Beheben-Phase nicht geloggt:** Eigener Vorschlag, Wahl und Begründung
+  stehen nur in der Sitzung. `Turn` kennt dafür keine Rolle und nur die
+  Stufen 1 bis 3. Ob die Daten ins Log sollen, ist offen.
 - **Reihenfolge:** Pflichtfeld `order` (ganze Zahl ab 1) auf oberster Ebene,
   eindeutig über alle Übungen. `load_all` sortiert danach statt nach id, die
   App zeigt die Übungen in dieser Reihenfolge. Werte: API-Key 1, Strapi 2,
