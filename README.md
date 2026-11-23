@@ -252,7 +252,7 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Prompt-Sprache:** Deutsch, wie die Übungen und Hints, damit
   Fachpersonen die Prompts direkt prüfen können.
 - **Tutor-Config:** `TUTOR_TEMPERATURE` (Default 0.7 wie im Log-Beispiel)
-  und `TUTOR_PROMPT_VERSION` (Default 1) in `core/config.py`. `tutor.ask()`
+  und `TUTOR_PROMPT_VERSION` (Default 2 seit 23.11.2026, vorher 1) in `core/config.py`. `tutor.ask()`
   kann Modell, Temperatur und Prompt-Version pro Aufruf überschreiben, für
   das Eval-Grid (I-14).
 - **Few-Shot-Filter:** `tutor.few_shot_examples()` nimmt die Hints derselben

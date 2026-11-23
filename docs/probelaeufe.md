@@ -108,3 +108,52 @@ Lauf 5, Einstufungen `new` und `basics`, alle `cache_hit=False`.
 - Ein Treffer verdoppelt die Wartezeit (hier 30 bis 35 s statt 15 bis 19 s).
 - Die Leaks entstehen wie in Lauf 5 beim Erklären und Aufzählen
   (`prompts/v2_candidates.md`, T4 und T5).
+
+## Lauf 7: Tutor `tutor_v1` mit vier Übungen, Leak Guard (23.11.2026)
+
+`scripts/try_tutor.py --prompt-version 1 --guarded`, Stufe 1, 4 Übungen
+(neu mit `kommentare-bereinigt`) × 3 Einstufungen, alle `cache_hit=False`.
+
+- **1 Guard-Treffer von 12** im ersten Versuch: `api-key-frontend`/`new`,
+  Wort «Server» in «im Netzwerk-Tab, der jede vom Server gelieferte Datei
+  auflistet». Das ist ein Fehlalarm, kein Leak: «Server» war in Stufe 1 und
+  2 der Übung verboten, um den Fix (Proxy) zurückzuhalten, ist aber für
+  Erklärungen zum Laden einer Seite zu allgemein. Seit 23.11. nicht mehr
+  verboten. Versuch 2 war sauber, aber fast wörtlich der Hint: Die
+  Anpassung an `new` ging verloren, die Wartezeit stieg von 47 auf 75 s.
+- **T6:** `kommentare-bereinigt`/`basics` nennt «die Route», die es im Code
+  nicht gibt (aus dem Strapi-Hint übernommen, `v2_candidates.md`).
+- **T4 und T5** wie in den Läufen 2 und 5: Strapi/`new` beschreibt die
+  Aktionen mit Beispielen, XSS/`basics` nennt «URL-Parameter».
+- Neutralität beim Decoy eingehalten, Satzlängen nach Einstufung
+  eingehalten.
+- **Antwortzeiten 14 bis 47 s** im ersten Versuch, Median rund 30 s.
+
+## Lauf 8: Tutor `tutor_v2` mit vier Übungen, Leak Guard (23.11.2026)
+
+Wie Lauf 7, mit `--prompt-version 2`.
+
+| | Lauf 7 (`tutor_v1`) | Lauf 8 (`tutor_v2`) |
+|---|---|---|
+| Guard-Treffer im ersten Versuch | 1 von 12 | 0 von 12 |
+| Angepasste Frage angezeigt (Versuch 1) | 11 von 12 | 12 von 12 |
+| T4: Aufzählungen beim Erklären | Strapi/`new` | nicht aufgetreten |
+| T5: Tipp genauer als der Hint | XSS/`basics` («URL-Parameter») | nicht aufgetreten («Schau im Quellcode nach») |
+| T6: Inhalt aus Beispielen | Decoy/`basics` («Route») | nicht aufgetreten |
+| Fachlich falsche Erklärung | keine gefunden | Decoy/`new` (T7) |
+| Wartezeit für alle 12 Fragen | rund 6,5 min | rund 9 min (20 bis 114 s pro Frage) |
+
+- **Neu, T7:** Decoy/`new` erklärt `v-html` falsch («mit allen
+  Schrägstrichen und Klammern»). Der Leak Guard kann das nicht erkennen.
+- **Neu, T8:** XSS/`new` bietet die Antwort als Auswahl an («oder könnte es
+  auch jemand anderes sein»), Strapi/`new` unterstellt «zusätzlich
+  erlaubte» Aktionen.
+- 8 von 12 Fragen beginnen mit «Dieser Schritt …» (Floskel im Feed up).
+- Strapi/`basics` endet ohne Frage («Schau dir … an.»).
+- Die längere Wartezeit lässt sich nicht dem Prompt zuschreiben, die Last am
+  Proxy schwankt.
+- **Entscheid:** `tutor_v2` ist seit 23.11.2026 Default. v2 behebt T3 bis
+  T5 in diesen Läufen und hält die Anpassung in allen 12 Fällen. T6 bis T8
+  sind Kandidaten für eine nächste Version. Bei n = 1 pro Fall ist das ein
+  erster Hinweis; ob v2 wirkt, zeigt die Auswertung nach Einstufung in
+  I-13/I-14.

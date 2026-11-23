@@ -89,16 +89,19 @@ answer_key:
     - "Fremde können den Key aus der Seite holen und die API auf Leas Kosten nutzen"
 
 stages:
+  # "Server" ist seit 23.11.2026 nicht mehr verboten: Wer erklärt, wie eine Seite
+  # geladen wird, sagt fast zwangsläufig "Server" (Fehlalarm in Probelauf 7).
+  # Den Fix (Proxy) halten "Proxy", "Backend" und "Serverless" zurück.
   1:
     goal: Den Blick vom Repository auf das lenken, was beim Besucher ankommt
     # TODO Expert:in: Vorschlag aus Aufgabe 1. Der finale Hint kommt von der Fachperson (Gold Standard).
     hint: "Lea hat dafür gesorgt, dass der Key nicht mehr im Repository steht. Welche Dateien bekommt aber jemand, der ihre fertige Seite im Browser öffnet?"
-    forbidden: ["öffentlich", "sichtbar", "lesbar", "DevTools", "Quelltext", "Build-Output", "ausgeliefert", "Klartext", "secret.js", "Proxy", "Backend", "Server", "Serverless", "stehlen", "missbrauchen"]
+    forbidden: ["öffentlich", "sichtbar", "lesbar", "DevTools", "Quelltext", "Build-Output", "ausgeliefert", "Klartext", "secret.js", "Proxy", "Backend", "Serverless", "stehlen", "missbrauchen"]
   2:
     goal: Den Weg des Keys durch den Workflow verfolgen lassen
     # TODO Expert:in: Vorschlag aus Aufgabe 1. Der finale Hint kommt von der Fachperson (Gold Standard).
     hint: "Geh den Workflow Schritt für Schritt durch: Wohin schreibt der Schritt 'Inject API Key' den Key, und welche Dateien lädt der Schritt 'Upload artifact' danach auf GitHub Pages hoch?"
-    forbidden: ["öffentlich", "lesbar", "DevTools", "Klartext", "Proxy", "Backend", "Server", "Serverless", "stehlen", "missbrauchen"]
+    forbidden: ["öffentlich", "lesbar", "DevTools", "Klartext", "Proxy", "Backend", "Serverless", "stehlen", "missbrauchen"]
   3:
     goal: Übertragung über eine Analogie, die Person verbindet sie selbst mit dem Code
     # TODO Expert:in: Vorschlag aus Aufgabe 1. Der finale Hint kommt von der Fachperson (Gold Standard).
