@@ -35,7 +35,10 @@ CASES: dict[str, list[tuple[str, str]]] = {
     ],
     "strapi-auth-false": [
         ("CORS erlaubt nur localhost, also passt das.", "not"),
-        ("update und delete brauchen keinen Login, so kann jeder fremde Kommentare löschen.", "recognized"),
+        # Ohne den Ort der Regel (auth: false, im Admin unsichtbar): partial (Entscheid 24.11., Lauf 11).
+        ("update und delete brauchen keinen Login, so kann jeder fremde Kommentare löschen.", "partial"),
+        ("update und delete gehen ohne Login, weil auth: false die Prüfung in der Route abschaltet, im Admin "
+         "sieht man davon nichts. So kann jeder fremde Kommentare löschen.", "recognized"),
         ("Das Formular funktioniert jetzt, die KI hat den 403 behoben.", "not"),
         ("Man sollte auth: false entfernen und nur create freigeben.", "partial"),
     ],
@@ -50,7 +53,8 @@ CASES: dict[str, list[tuple[str, str]]] = {
          "oder https. Das wird beim Anzeigen gemacht.", "recognized"),
         ("v-html ist immer unsicher, das ist XSS.", "not"),
         ("Unsicher, eigene Filter haben fast immer Lücken. Ich würde DOMPurify nehmen.", "not"),
-        ("Die KI sagt ja, unsichere Inhalte werden entfernt, also passt es.", "partial"),
+        # Nur die Fehlannahme ki-hat-bereinigt, kein eigener Grund: "not" (Rubrik, Lauf 9).
+        ("Die KI sagt ja, unsichere Inhalte werden entfernt, also passt es.", "not"),
     ],
 }  # fmt: skip
 

@@ -96,7 +96,15 @@ Läufe vor dem 20.11.2026 (I-18) kamen teilweise aus dem Cache des Proxys.
 - **Datum:** 20.11.2026, `grader_v1` und `grader_v2`, `gpt-oss:120b`, Temperatur 0.0, ohne Cache
 - **Beispiel:** `strapi-auth-false`: «Man sollte auth: false entfernen und nur create freigeben.» ergibt in v1 und v2 `recognized`.
 - **Vermutete Ursache:** «nur create freigeben» sagt indirekt, dass die anderen Aktionen zu viel sind. Das Modell wertet das als Kern. Ob das reicht, ist eine fachliche Frage, keine des Prompts (siehe Frage an die Fachperson «Reicht ein Fix allein?»).
-- **Status:** wartet auf die Fachperson
+- **Nachtrag 24.11.2026:** Fachlich entschieden im Raster von Aufgabe 2: Ein Fix ohne Folge ist `partial`. In Probelauf 9 zum dritten Mal `recognized`, in Lauf 10 mit korrigierten `accepted`-Listen zum vierten Mal. Ursache: Die Rubrik von v1/v2 («trifft den Kern») genügt dem Modell, und der Kern beschreibt den Mechanismus ohne Folge. Die `accepted`-Listen ohne Folge waren höchstens ein Teil davon.
+- **Status:** erledigt. `grader_v3` (Pflichtbausteine) ist seit 24.11.2026 Default, der Fall ist in den Läufen 10 bis 12 `partial`. Strapi hat drei Pflichtbausteine (Ort der Regel ist Pflicht, wie im Aufgabe-2-Dokument).
+
+### G3: Kern ohne Folge wird `recognized`
+
+- **Datum:** 24.11.2026, `grader_v2`, `gpt-oss:120b`, Temperatur 0.0, ohne Cache (Probelauf 9)
+- **Beispiel:** `api-key-frontend`: «Den Schlüssel sieht man in den Devtools.» ergibt `recognized`, erwartet `partial` (sichtbar, aber keine Folge).
+- **Ursache:** Wie G2. Die `accepted`-Liste enthielt zwar zwei Antworten ohne Folge, die korrigiert sind. In Lauf 10 blieb v2 mit den korrigierten Listen aber bei `recognized`. Der Mechanismus («Kern») reicht der Rubrik von v2, unabhängig von den Beispielen.
+- **Status:** erledigt mit `grader_v3`, in den Läufen 10 bis 12 `partial`.
 
 ### Erledigt: Fix ohne Begründung wird `recognized`
 

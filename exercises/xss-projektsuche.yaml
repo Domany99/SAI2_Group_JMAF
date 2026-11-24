@@ -76,11 +76,17 @@ answer_key:
     derselben Herkunft lesen. Ein Test mit <script> schlägt fehl, weil der
     Browser Script-Tags über innerHTML nicht ausführt.
   accepted:
-    - "über den q-Parameter im Link kann jeder eigenes HTML einschleusen, das per innerHTML eingefügt wird"
+    - "über den q-Parameter im Link kann jeder eigenes HTML einschleusen, das per innerHTML eingefügt wird, und so ein Skript auf Leas Seite starten"
     - "der Suchbegriff aus der URL landet ungeprüft im innerHTML der Meldung, so läuft fremder Code auf Leas Seite"
-    - "wer den Link baut, kann ein img mit onerror in den Suchbegriff setzen, das wird ausgeführt"
+    - "wer den Link baut, kann ein img mit onerror in den Suchbegriff setzen, das über innerHTML eingefügt und ausgeführt wird"
     - "der Begriff aus dem Link wird als HTML statt als Text angezeigt, damit kann man fremdes Skript ausführen"
     - "Cross-Site-Scripting: Quelle ist die URL, Senke ist innerHTML, Besucher führen fremden Code aus"
+  # Pflichtbausteine für grader_v3: "recognized" verlangt alle. Jede accepted-Antwort enthält alle.
+  # Ein Gedanke pro Baustein, ohne Nebensätze: Das Modell prüft sonst jeden Teilsatz (Probelauf 10).
+  required:
+    - "Der Suchbegriff kommt aus dem Link, also kann ihn jeder bestimmen"
+    - "Er wird als HTML eingefügt (innerHTML)"
+    - "Folge: Fremder Code läuft im Browser der Besucher"
 
 stages:
   1:

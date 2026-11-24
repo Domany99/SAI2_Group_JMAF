@@ -85,6 +85,9 @@ class AnswerKey(_Model):
     issue: NonEmptyStr
     consequence: NonEmptyStr
     accepted: list[NonEmptyStr]
+    # Bausteine des Bewertungsrasters: "recognized" verlangt alle (ab grader_v3).
+    # Optional, damit ältere Prompt-Versionen und Übungen ohne Raster weiter laufen.
+    required: list[NonEmptyStr] = []
 
     @field_validator("accepted")
     @classmethod

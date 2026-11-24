@@ -410,7 +410,7 @@ def test_config_tutor_defaults(clean_env: pytest.MonkeyPatch) -> None:
     assert config.tutor_temperature == 0.7
     assert config.tutor_prompt_version == 2
     assert config.grader_temperature == 0.0
-    assert config.grader_prompt_version == 2
+    assert config.grader_prompt_version == 3
 
 
 def test_config_tutor_values_from_env(clean_env: pytest.MonkeyPatch) -> None:
@@ -418,12 +418,12 @@ def test_config_tutor_values_from_env(clean_env: pytest.MonkeyPatch) -> None:
     clean_env.setenv("TUTOR_TEMPERATURE", "0.3")
     clean_env.setenv("TUTOR_PROMPT_VERSION", "1")
     clean_env.setenv("GRADER_TEMPERATURE", "0.2")
-    clean_env.setenv("GRADER_PROMPT_VERSION", "3")
+    clean_env.setenv("GRADER_PROMPT_VERSION", "2")
     config = load_config(None)
     assert config.tutor_temperature == 0.3
     assert config.tutor_prompt_version == 1
     assert config.grader_temperature == 0.2
-    assert config.grader_prompt_version == 3
+    assert config.grader_prompt_version == 2
 
 
 @pytest.mark.parametrize(("name", "value"), [

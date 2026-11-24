@@ -53,11 +53,19 @@ answer_key:
     zum Beispiel per Skript über die documentId aus der öffentlichen Liste. Im
     Admin-Panel ist davon nichts zu sehen.
   accepted:
-    - "ohne Login kann jeder Kommentare ändern oder löschen"
-    - "update und delete sind für alle offen, nicht nur create"
-    - "auth false schaltet die Rechteprüfung ab, deshalb sieht man im Admin nichts"
-    - "Fremde können Kommentare von anderen umschreiben oder alle löschen"
-    - "über find bekommt man alle IDs und kann damit jeden Kommentar löschen"
+    - "ohne Login kann jeder fremde Kommentare ändern oder löschen, weil auth: false die Rechteprüfung in der Route abschaltet"
+    - "update und delete sind für alle offen, nicht nur create, weil auth: false die Rollen umgeht, also kann jeder fremde Kommentare ändern oder löschen"
+    - "auth false schaltet die Rechteprüfung für alle Aktionen ab, so kann jeder ohne Login fremde Kommentare löschen, und im Admin sieht man nichts"
+    - "Fremde können Kommentare von anderen umschreiben oder alle löschen, weil update und delete ohne Login gehen, und im Admin-Panel ist davon nichts zu sehen"
+    - "über find bekommt man alle IDs und kann damit ohne Login jeden Kommentar löschen, weil auth: false auch delete freigibt"
+  # Pflichtbausteine für grader_v3: "recognized" verlangt alle. Jede accepted-Antwort enthält alle.
+  # Ein Gedanke pro Baustein, ohne Nebensätze: Das Modell prüft sonst jeden Teilsatz (Probelauf 10).
+  # Drei Bausteine wie im Raster des Aufgabe-2-Dokuments (Entscheid 24.11.2026): Der
+  # unsichtbare Umweg über auth: false ist der Kern dieser Übung, nicht nur ein Zusatz.
+  required:
+    - "Ändern und Löschen gehen ohne Login"
+    - "Ursache: auth: false in der Route schaltet die Rechteprüfung ab (oder: im Admin-Panel ist keine Freigabe zu sehen)"
+    - "Folge: Fremde können Kommentare anderer ändern oder löschen"
 
 stages:
   1:

@@ -82,11 +82,16 @@ answer_key:
     Fall begann der Missbrauch nach 156 Tagen: zuerst Abtasten auf mehreren
     Modellen, dann 1,56 Mio. Token an einem Tag.
   accepted:
-    - "der Key steht nach dem Build in secret.js, und die Datei wird mit der Seite an jeden Besucher ausgeliefert"
-    - "GitHub Secrets schützen nur das Repository, im Browser ist der Key trotzdem lesbar"
-    - "jeder kann secret.js im Browser oder in den DevTools öffnen und den Key kopieren"
-    - "der Browser braucht den Key im Klartext für die Anfrage, also ist er öffentlich"
+    - "der Key steht nach dem Build in secret.js, die Datei geht an jeden Besucher, so kann jeder den Key herauskopieren und benutzen"
+    - "GitHub Secrets schützen nur das Repository, im Browser kann jeder den Key lesen und selbst benutzen"
+    - "jeder kann secret.js im Browser oder in den DevTools öffnen, den Key kopieren und auf Leas Kosten verwenden"
+    - "der Browser braucht den Key im Klartext für die Anfrage, also kann ihn jeder abgreifen und für eigene Anfragen nutzen"
     - "Fremde können den Key aus der Seite holen und die API auf Leas Kosten nutzen"
+  # Pflichtbausteine für grader_v3: "recognized" verlangt alle. Jede accepted-Antwort enthält alle.
+  # Ein Gedanke pro Baustein, ohne Nebensätze: Das Modell prüft sonst jeden Teilsatz (Probelauf 10).
+  required:
+    - "Der Key ist im Browser für alle lesbar (er steht in der ausgelieferten secret.js)"
+    - "Folge: Fremde können den Key selbst nutzen, auf Leas Kosten"
 
 stages:
   # "Server" ist seit 23.11.2026 nicht mehr verboten: Wer erklärt, wie eine Seite

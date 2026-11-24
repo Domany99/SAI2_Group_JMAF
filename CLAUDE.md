@@ -25,7 +25,7 @@ pytest -k hint                                    # by name
 
 Run from the repo root: tests import `core` and `tests.conftest` as packages. Dependencies in `requirements.txt` must be pinned to exact versions (a grading criterion in the course; `streamlit` is still unpinned, see the issues). Do not add dependencies without asking. Guard and stage logic need full coverage (spec); `core/guard.py`, `core/leak_guard.py` and `core/stages.py` were at 100 % line and branch coverage after I-09. `coverage` is not a dependency, so install it only temporarily if you need to measure.
 
-The LLM backend is the BFH LiteLLM proxy (OpenAI-compatible, `LLM_BASE_URL`). Outside the BFH network it needs VPN. Default models: `TUTOR_MODEL=qwen3.8-27b`, `GRADER_MODEL=gpt-oss:120b`; tutor defaults `TUTOR_TEMPERATURE=0.7`, `TUTOR_PROMPT_VERSION=2`; grader defaults `GRADER_TEMPERATURE=0.0`, `GRADER_PROMPT_VERSION=2`. The proxy caches identical requests even at temperature > 0; `LLM_NO_CACHE=true` (default) bypasses it, and every LLM result carries `cache_hit`. Real latency of the tutor is 13–114 s per question (probe runs 5, 7, 8).
+The LLM backend is the BFH LiteLLM proxy (OpenAI-compatible, `LLM_BASE_URL`). Outside the BFH network it needs VPN. Default models: `TUTOR_MODEL=qwen3.8-27b`, `GRADER_MODEL=gpt-oss:120b`; tutor defaults `TUTOR_TEMPERATURE=0.7`, `TUTOR_PROMPT_VERSION=2`; grader defaults `GRADER_TEMPERATURE=0.0`, `GRADER_PROMPT_VERSION=3`. The proxy caches identical requests even at temperature > 0; `LLM_NO_CACHE=true` (default) bypasses it, and every LLM result carries `cache_hit`. Real latency of the tutor is 13–114 s per question (probe runs 5, 7, 8).
 
 ## Architecture
 

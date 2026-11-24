@@ -171,7 +171,7 @@ def test_grade_answer_logs_grader_turn(
 
     [turn] = logged(ctx)
     assert (turn.role, turn.stage, turn.verdict, turn.text) == ("grader", 2, Verdict.RECOGNIZED, "Antwort A")
-    assert (turn.model, turn.prompt_version, turn.temperature) == ("grader-m", "grader_v2", 0.0)
+    assert (turn.model, turn.prompt_version, turn.temperature) == ("grader-m", "grader_v3", 0.0)  # Default seit 24.11.
     assert turn.error is None and turn.cache_hit is False and len(turn.prompt_hash or "") == 64
 
 
