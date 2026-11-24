@@ -157,3 +157,96 @@ Wie Lauf 7, mit `--prompt-version 2`.
   sind Kandidaten für eine nächste Version. Bei n = 1 pro Fall ist das ein
   erster Hinweis; ob v2 wirkt, zeigt die Auswertung nach Einstufung in
   I-13/I-14.
+
+## Lauf 9: Grader `grader_v2` mit vier Übungen (24.11.2026)
+
+`scripts/try_grader.py`, 15 feste Antworten zu 4 Übungen, `gpt-oss:120b`,
+Temperatur 0.0, alle `cache_hit=False`. 2,8 bis 8,6 s pro Bewertung.
+
+| Erwartet | Fälle | Ergebnis |
+|---|---|---|
+| `recognized` | 4 | 4 richtig |
+| `not` | 6 | 6 richtig, darunter die Prompt-Injection |
+| `partial` | 4 | 1 richtig, 2× `recognized`, 1× `not` |
+| `?` | 1 | `not` |
+
+- **Zwei falsche `recognized`** (G2, G3 in `prompts/v2_candidates.md`):
+  Strapi «Man sollte auth: false entfernen und nur create freigeben.» und
+  API-Key «Den Schlüssel sieht man in den Devtools.» Beide berühren den Kern
+  ohne Folge. Vermutete Ursache: `accepted`-Listen mit Antworten ohne Folge
+  und ein Grader ohne Bausteine des Rasters. Lauf 10 zeigt, dass die Listen
+  allein nicht die Ursache waren.
+- **Decoy «Die KI sagt ja, unsichere Inhalte werden entfernt, also passt
+  es.»** ergab `not` statt `partial`. Kein Fehler des Graders: Die Rubrik
+  wertet eine Antwort, die nur aus einer Fehlannahme besteht
+  (`ki-hat-bereinigt`), als `not`. Die Erwartung in `try_grader.py` ist
+  angepasst.
+- **Fehlannahmen** in allen 5 Fällen richtig erkannt.
+- Achtung für den Vergleich: Die `accepted`-Listen haben sich nach diesem
+  Lauf geändert. Ein neuer v2-Lauf kann deshalb anders ausfallen als
+  Lauf 9.
+
+## Lauf 10: Grader v2 gegen v3 (24.11.2026)
+
+Wie Lauf 9, beide Versionen nacheinander, mit korrigierten `accepted`-Listen
+und den ersten Pflichtbausteinen. 2,3 bis 11,6 s pro Bewertung.
+
+| Fall | erwartet | `grader_v2` | `grader_v3` |
+|---|---|---|---|
+| API-Key «Den Schlüssel sieht man in den Devtools.» | partial | recognized | partial |
+| Strapi «… auth: false entfernen und nur create freigeben.» | partial | recognized | partial |
+| API-Key «Der Workflow schreibt den Key in secret.js … auf Leas Kosten benutzen.» | recognized | recognized | partial |
+| Strapi «update und delete brauchen keinen Login, so kann jeder fremde Kommentare löschen.» | recognized | recognized | partial |
+| übrige 11 Fälle | | alle wie erwartet | alle wie erwartet |
+
+- **v2:** Die korrigierten `accepted`-Listen ändern nichts, beide falschen
+  `recognized` bleiben. Die Ursache liegt in der Rubrik («trifft den Kern»),
+  nicht in den Beispielen (G2, G3 korrigiert).
+- **v3:** keine falschen `recognized` mehr, dafür zwei falsche `partial`.
+  Ursache: Die Bausteine enthielten mehrere Gedanken («… im Browser jeder
+  Besucherin, GitHub Secrets und .gitignore ändern daran nichts»; «Nicht nur
+  create ist offen: Auch Ändern und Löschen …»). Das Modell prüfte jeden
+  Teilsatz als Pflicht.
+- **Änderung danach:** ein Gedanke pro Baustein, und in `grader_v3` der Satz
+  «Ein Baustein ist erfüllt, wenn sein Kerngedanke vorkommt. Beispiele in
+  Klammern und Nebensätze sind nicht Pflicht.» Zwei Änderungen gleichzeitig,
+  welche gewirkt hat, lässt sich nicht trennen (n = 1 pro Fall).
+
+## Lauf 11: Grader v3 mit schlankeren Bausteinen (24.11.2026)
+
+`try_grader.py --prompt-version 3` nach der Änderung aus Lauf 10. 2,1 bis
+12,3 s pro Bewertung.
+
+- **14 von 15 wie erwartet, keine falschen `recognized`.** Die vollständige
+  API-Key-Antwort wird jetzt `recognized`, «Devtools» und «nur create
+  freigeben» bleiben `partial`.
+- **Abweichung:** Strapi «update und delete brauchen keinen Login, so kann
+  jeder fremde Kommentare löschen.» ergibt `partial` (erwartet
+  `recognized`), wie schon in Lauf 10. Beide Pflichtbausteine stehen in der
+  Antwort, es fehlt der Ort der Regel aus dem Kern (`auth: false` in der
+  Route, im Admin unsichtbar). Der Grader urteilt damit wie das
+  ursprüngliche Raster im Aufgabe-2-Dokument (drei Bausteine). Die
+  Erwartung beruhte auf einer Abweichung davon.
+- **Entscheid:** Der Ort der Regel ist Pflicht. Strapi hat wieder drei
+  Bausteine, die `accepted`-Antworten nennen alle den Ort, die Erwartung für
+  die Antwort ohne Ort ist `partial`, dazu kommt ein vollständiger Probefall
+  mit `recognized`. Vergleichslauf offen.
+
+## Lauf 12: Grader v3 mit drei Strapi-Bausteinen (24.11.2026)
+
+`try_grader.py --prompt-version 3`, jetzt 16 Probefälle (neu ein
+vollständiger Strapi-Fall mit dem Ort der Regel). 2,1 bis 11,3 s pro
+Bewertung.
+
+- **16 von 16 wie erwartet.** Keine falschen `recognized`, keine falschen
+  `partial`. Der vollständige Strapi-Fall («… weil auth: false die Prüfung
+  in der Route abschaltet, im Admin sieht man davon nichts. So kann jeder
+  fremde Kommentare löschen.») wird `recognized`, die Antwort ohne Ort
+  bleibt `partial`.
+- Fehlannahmen weiterhin in allen 5 Fällen erkannt, Injection ignoriert.
+- **Entscheid:** `grader_v3` ist seit 24.11.2026 Default.
+- **Einschränkung:** Die 16 Probefälle sind genau die Fälle, an denen v3
+  kalibriert wurde (Läufe 9 bis 12). 16 von 16 zeigt, dass Raster und
+  Grader übereinstimmen, nicht wie gut der Grader bei fremden Antworten
+  urteilt. Das misst erst die Evaluation mit unabhängig gelabelten
+  Antworten (I-13).

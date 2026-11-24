@@ -48,6 +48,14 @@ def test_grader_placeholders(number: int) -> None:
     assert load_prompt("grader", number).placeholders == GRADER_V1_PLACEHOLDERS
 
 
+def test_grader_v3_adds_required_placeholder() -> None:
+    # v3 bekommt die Pflichtbausteine der Übung, sonst derselbe Vertrag wie v1/v2.
+    assert load_prompt("grader", 3).placeholders == GRADER_V1_PLACEHOLDERS | {"required"}
+    text = load_prompt("grader", 3).text
+    assert "Mindestens ein Pflichtbaustein fehlt" in text
+    assert "Im Link steht die User-ID, die kann man einfach ändern." in text  # Kern ohne Folge = partial
+
+
 def test_grader_v2_adds_fix_rule_and_example() -> None:
     v1 = load_prompt("grader", 1).text
     v2 = load_prompt("grader", 2).text
@@ -78,7 +86,7 @@ def test_v1_covers_issue_requirements(role: str, required: list[str]) -> None:
     assert not missing
 
 
-ALL_PROMPTS = [("tutor", 1), ("grader", 1), ("grader", 2), ("tutor_strict", 1)]
+ALL_PROMPTS = [("tutor", 1), ("tutor", 2), ("grader", 1), ("grader", 2), ("grader", 3), ("tutor_strict", 1)]
 
 
 def test_tutor_strict_v1_has_no_placeholders() -> None:
@@ -112,7 +120,7 @@ def test_prompts_contain_no_content_from_real_exercises(role: str, number: int) 
         assert not leaked, exercise.id
 
 
-@pytest.mark.parametrize("number", [1, 2])
+@pytest.mark.parametrize("number", [1, 2, 3])
 def test_grader_example_outputs_match_schema(number: int) -> None:
     # Die Beispielausgaben sind das Vorbild für das Modell, sie müssen selbst gültig sein.
     import json

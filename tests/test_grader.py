@@ -386,3 +386,32 @@ def test_prompt_hash_differs_per_exercise(
 def test_cache_hit_is_passed_on(monkeypatch: pytest.MonkeyPatch, exercise: Exercise, cfg: LLMConfig, hit: bool) -> None:
     monkeypatch.setattr(grader, "chat", FakeChat(reply(), cache_hit=hit))
     assert grader.grade(exercise, ANSWER, config=cfg).cache_hit is hit
+
+
+# --- Pflichtbausteine (ab grader_v3) ------------------------------------------
+
+
+def _system_prompt(exercise: Exercise, number: int) -> str:
+    from core.prompts import load_prompt
+
+    return grader.build_messages(load_prompt("grader", number), exercise, ANSWER)[0]["content"]
+
+
+def test_v3_lists_required_blocks(valid_data: dict[str, Any]) -> None:
+    data = copy.deepcopy(valid_data)
+    data["answer_key"]["required"] = ["BAUSTEIN-EINS", "BAUSTEIN-ZWEI"]
+    system = _system_prompt(Exercise.model_validate(data), 3)
+    assert "- BAUSTEIN-EINS\n- BAUSTEIN-ZWEI" in system
+
+
+def test_v3_without_required_blocks_says_so(exercise: Exercise) -> None:
+    assert exercise.answer_key.required == []
+    assert grader.NO_REQUIRED in _system_prompt(exercise, 3)
+
+
+@pytest.mark.parametrize("number", [1, 2])
+def test_older_versions_ignore_required_blocks(valid_data: dict[str, Any], number: int) -> None:
+    data = copy.deepcopy(valid_data)
+    data["answer_key"]["required"] = ["BAUSTEIN-EINS"]
+    system = _system_prompt(Exercise.model_validate(data), number)  # kein PromptError
+    assert "BAUSTEIN-EINS" not in system

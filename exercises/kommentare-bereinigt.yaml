@@ -113,6 +113,11 @@ answer_key:
     - "onerror oder onclick kommen nicht durch, weil sanitizeHtml alle Attribute löscht, und Links nur mit http oder https bleiben"
     - "v-html ist hier in Ordnung, weil beim Anzeigen bereinigt wird, auch wenn jemand direkt an die API schickt"
     - "sicher, die Positivliste lässt nur b, strong, a, br, div und p durch, ich würde trotzdem DOMPurify statt einer eigenen Funktion nehmen"
+  # Pflichtbausteine für grader_v3: "recognized" verlangt alle. Jede accepted-Antwort enthält alle.
+  # Ein Gedanke pro Baustein, ohne Nebensätze: Das Modell prüft sonst jeden Teilsatz (Probelauf 10).
+  required:
+    - "Urteil: Der Code ist in Ordnung, fremdes Skript wird nicht ausgeführt"
+    - "Grund aus sanitizeHtml: Positivliste, alle Attribute entfernt, nur http(s)-Links oder Bereinigung beim Anzeigen (einer davon genügt)"
 
 stages:
   1:

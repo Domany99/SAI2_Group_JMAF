@@ -44,7 +44,8 @@ class LLMConfig(BaseModel):
     # Grader (LLM 2): tiefe Temperatur (Spezifikation), 0 für reproduzierbare Urteile.
     # v2 seit I-18: Ein Fix ohne Begründung ist partial (Probelauf, prompts/README.md).
     grader_temperature: float = Field(default=0.0, ge=0, le=2)
-    grader_prompt_version: int = Field(default=2, ge=1)
+    # v3 seit 24.11.2026: Pflichtbausteine, Probeläufe 9 bis 12 (docs/probelaeufe.md).
+    grader_prompt_version: int = Field(default=3, ge=1)
 
     @field_validator("api_key")
     @classmethod

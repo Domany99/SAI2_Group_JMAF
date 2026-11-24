@@ -443,3 +443,21 @@ def test_reflection_texts_not_blank(write_exercise: Writer, valid_data: dict[str
 
 def test_real_exercises_have_reflection() -> None:
     assert all(e.close.reflection is not None for e in load_all(EXERCISES_DIR).values())
+
+
+# --- Pflichtbausteine (answer_key.required, optional) --------------------------------
+
+
+def test_required_is_optional(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    assert load_exercise(write_exercise(valid_data)).answer_key.required == []
+
+
+def test_required_entries_not_blank(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    valid_data["answer_key"]["required"] = ["Baustein", " "]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "answer_key.required.1", "darf nicht leer sein")
+
+
+def test_real_exercises_have_at_least_two_required_blocks() -> None:
+    for exercise in load_all(EXERCISES_DIR).values():
+        assert len(exercise.answer_key.required) >= 2, exercise.id

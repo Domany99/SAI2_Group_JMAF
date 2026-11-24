@@ -156,7 +156,15 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   nicht gibt, ist sie `not`, auch wenn der Einwand fachlich berechtigt ist
   (etwa "eigene Filter sind lückenhaft"). So steht es in `grader_v2`, und so
   wird auch beim Labeln gewertet. Die Stufen-Logik behandelt `partial` und
-  `not` ohnehin gleich.
+  `not` ohnehin gleich. Ebenso: Eine Antwort, die nur aus einer Fehlannahme
+  besteht (etwa "die KI sagt es ja"), ist `not` (Rubrik, Probelauf 9).
+- **Pflichtbausteine:** Optionales Feld `answer_key.required`, die Bausteine
+  des Bewertungsrasters (2 bis 3 pro Übung). Ab `grader_v3` verlangt
+  `recognized` alle, sinngemäss. Jede Antwort in `accepted` enthält alle
+  Bausteine, sonst widersprechen sich Beispiele und Raster (das war die
+  Ursache für G2 und G3 in Probelauf 9). Ältere Prompt-Versionen bekommen das
+  Feld nicht, `core/grader.py` setzt es nur ein, wenn die Vorlage den
+  Platzhalter hat. Nicht im Tutor-Kontext, nicht in der UI.
 - **Ordner:** `eval/results/` ist angelegt, obwohl es im Layout fehlt.
 - **LLM-Anbindung vorgezogen:** `core/llm.py` und `core/config.py` entstehen
   vor Schritt 2 der "Order of work" (UI ohne LLM). Tutor, Grader und Prompts
@@ -299,7 +307,9 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Modellantwort gibt es kein Urteil, auch kein Fallback-`partial`. Was die UI
   dann zeigt, entscheidet I-10.
 - **Grader-Config:** `GRADER_TEMPERATURE` (Default 0.0) und
-  `GRADER_PROMPT_VERSION` (Default 2 seit I-18), pro Aufruf überschreibbar.
+  `GRADER_PROMPT_VERSION` (Default 3 seit 24.11.2026, vorher 2 seit I-18),
+  pro Aufruf überschreibbar. `grader_v3` (Pflichtbausteine) wurde nach den
+  Probeläufen 9 bis 12 Default.
 - **`grader_v2`:** v1 plus die Regel «Ein Fix ohne Begründung des Problems
   ist partial» und ein Beispiel dazu, sonst unverändert, damit ein
   Unterschied zwischen v1 und v2 in der Evaluation genau dieser Regel

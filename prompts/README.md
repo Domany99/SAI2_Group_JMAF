@@ -13,7 +13,8 @@ werden sie mit `core.prompts.load_prompt(role, number)`, zum Beispiel
 | `grader_v1.md` | nein | erste Version | I-06 |
 | `tutor_strict_v1.md` | ja | erste Version: Zusatz zum Tutor-Prompt für den zweiten Versuch nach einem Guard-Treffer, ohne Platzhalter | I-09 |
 | `tutor_v2.md` | ja (seit 23.11.2026) | Abschnitt «Ton nach Vorwissen» geschärft: Grundsatz «nicht mehr nennen als der Hinweis, auch nicht als Erklärung, Beispiel oder Tipp»; `experienced` höchstens drei kurze Sätze, Feed up optional; `basics` nur das Werkzeug, nicht genauer als der Hint; `new` Begriffe allgemein erklären, keine Beispiele aus Code oder Übung aufzählen. Platzhalter wie v1. | Probeläufe vom 20.11.2026, Kandidaten T3, T4, T5 (`v2_candidates.md`). Default nach Läufen 7 und 8 (`docs/probelaeufe.md`) |
-| `grader_v2.md` | ja | Regel «Ein Fix ohne Begründung des Problems ist partial» und ein passendes Beispiel. Sonst identisch mit v1. | Probelauf 3: «textContent statt innerHTML» wurde fälschlich `recognized` (`docs/probelaeufe.md`, Lauf 3 und 4) |
+| `grader_v2.md` | nein (bis 24.11.2026 ja) | Regel «Ein Fix ohne Begründung des Problems ist partial» und ein passendes Beispiel. Sonst identisch mit v1. | Probelauf 3: «textContent statt innerHTML» wurde fälschlich `recognized` (`docs/probelaeufe.md`, Lauf 3 und 4) |
+| `grader_v3.md` | ja (seit 24.11.2026) | Neuer Platzhalter `required` (Pflichtbausteine der Übung). «recognized» nur, wenn alle Bausteine sinngemäss enthalten sind; fehlt einer, ist es «partial». Ähnlichkeit mit einer akzeptierten Antwort allein reicht nicht mehr. Beispiele mit Pflichtbausteinen und ein neues Beispiel «Kern ohne Folge = partial». Sonst wie v2. | Probelauf 9: zwei falsche `recognized` (G2, G3 in `v2_candidates.md`). Default nach Lauf 12: 16 von 16 Probefällen wie erwartet |
 
 Beobachtungen für weitere Versionen sammelt `v2_candidates.md`.
 
@@ -68,7 +69,7 @@ nicht erneut ersetzt.
 User-Nachricht (nicht in der Vorlage): ab Stufe 2 die letzte Antwort der
 Person, sonst eine kurze Aufforderung, die Frage zu stellen.
 
-### `grader_v1.md` und `grader_v2.md`
+### `grader_v1.md` bis `grader_v3.md`
 
 | Platzhalter | Inhalt | Quelle |
 |---|---|---|
@@ -77,6 +78,7 @@ Person, sonst eine kurze Aufforderung, die Frage zu stellen.
 | `consequence` | Folge | `answer_key.consequence` |
 | `accepted` | eine Zeile pro Antwort als `- …` | `answer_key.accepted` |
 | `misconceptions` | eine Zeile pro Fehlannahme als `- <id>: <belief>`, ohne Einträge `keine` | `Exercise.misconceptions` |
+| `required` | nur v3: eine Zeile pro Pflichtbaustein als `- …`, ohne Einträge ein Hinweis «keine angegeben» | `answer_key.required` |
 
 User-Nachricht (nicht in der Vorlage): die Antwort der Person. Der Grader
 bekommt die Einstufung des Vorwissens **nicht** (I-08, Vergleich H11).
