@@ -79,6 +79,9 @@ class _Model(BaseModel):
 class Scenario(_Model):
     requirement: NonEmptyStr
     ai_chat: NonEmptyStr
+    # Steht in der App über dem Code. Bei Ausschnitten aus mehreren Dateien
+    # alle Dateien nennen, in der Reihenfolge im Code.
+    filename: NonEmptyStr
     code: NonEmptyStr
 
 
@@ -276,6 +279,7 @@ class Turn(_Model):
     - `verdict`: Pflicht bei grader, sonst null. `error` nur bei grader und
       nur zusammen mit partial.
     - `guard_hit`: nur bei tutor.
+    - `misconception`: nur bei grader, sonst null.
     """
 
     session: SessionId
@@ -291,6 +295,9 @@ class Turn(_Model):
     ts: AwareDatetime  # ISO 8601 mit Zeitzone; naive Zeitstempel sind ein Fehler
     prior_knowledge: PriorKnowledge
     hook: Hook
+    # `version` der Übungsdatei zum Zeitpunkt des Turns. Trennt Logs vor und
+    # nach einer inhaltlichen Änderung der Übung, ohne Umweg übers Datum.
+    exercise_version: int = Field(ge=1)
     # SHA-256 des fertig eingesetzten System-Prompts (inkl. Few-Shot). Die
     # Version allein reicht nicht: Die Beispiele ändern sich mit den Übungen.
     prompt_hash: PromptHash | None = None
@@ -302,6 +309,9 @@ class Turn(_Model):
     # Nur bei hint: warum der Expert:innen-Hint statt einer Tutor-Frage kam.
     fallback: Fallback | None = None
     error: GraderError | None = None
+    # Nur bei grader: id der erkannten Fehlannahme, null wenn keine erkannt
+    # oder die id in der Übung unbekannt war (core.grader verwirft sie).
+    misconception: MisconceptionId | None = None
 
     @field_validator("stage")
     @classmethod
@@ -354,6 +364,9 @@ class Turn(_Model):
                 violations.append(Violation("error", "nur bei role=grader erlaubt"))
             elif self.verdict is not Verdict.PARTIAL:
                 violations.append(Violation("error", "bei einem Fehler ist das Urteil immer partial"))
+
+        if self.misconception is not None and self.role != "grader":
+            violations.append(Violation("misconception", "nur bei role=grader erlaubt"))
 
         if violations:
             raise RuleViolations(violations)

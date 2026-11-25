@@ -51,7 +51,7 @@ The core guarantee is that **the tutor LLM can never reveal the answer**. Severa
 
 ## Exercises (`exercises/*.yaml`)
 
-- The filename stem is the `id` (`^[a-z0-9]+(-[a-z0-9]+)*$`). Unknown keys are errors (`extra="forbid"`). `decoy` must be an explicit bool. `answer_key.accepted` needs at least 2 entries. Optional: `hook` (stage 0), `misconceptions` (`id`, `belief`, `reaction`) and `close.fix_choices` (≥ 2 options, at least one `correct`).
+- The filename stem is the `id` (`^[a-z0-9]+(-[a-z0-9]+)*$`). Unknown keys are errors (`extra="forbid"`). `decoy` must be an explicit bool. `scenario.filename` is required (shown above the code). `answer_key.accepted` needs at least 2 entries. Optional: `hook` (stage 0), `misconceptions` (`id`, `belief`, `reaction`) and `close.fix_choices` (≥ 2 options, at least one `correct`).
 - Student-facing text (`scenario`, `hint`, `reaction`, `fix`, `pruefmuster`, `fix_choices`) is German with Swiss spelling (ss, never ß).
 - Hints are drafts marked `# TODO Expert:in`. The final hints come from the domain expert (gold standard). `ai_chat` placeholders say `TODO: Auszug aus dem echten Testchat einfügen`.
 - Code samples are short (≤ 20 lines), realistic and runnable.

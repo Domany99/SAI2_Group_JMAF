@@ -23,7 +23,8 @@ from core.logging import read_turns
 APP = Path(__file__).resolve().parent.parent / "app" / "main.py"
 EXERCISE = "api-key-frontend"
 # Aus der Übungsdatei gelesen, damit die Tests Textänderungen an der Übung überstehen.
-_STAGE_1 = load_exercise(APP.parent.parent / "exercises" / f"{EXERCISE}.yaml").stages[1]
+_EXERCISE_FILE = load_exercise(APP.parent.parent / "exercises" / f"{EXERCISE}.yaml")
+_STAGE_1 = _EXERCISE_FILE.stages[1]
 HINT_1 = _STAGE_1.hint
 LEAK_1 = f"Ist das {_STAGE_1.forbidden[0]}?"  # enthält einen verbotenen Begriff aus Stufe 1
 SUBMIT = "FormSubmitter:answer_form-Antwort senden"
@@ -135,6 +136,7 @@ def test_llm_mode_question_from_tutor_answer_to_grader(
     assert turns[1].text == ANSWER
     assert len({t.session for t in turns}) == 1
     assert all(t.hook == "none" and t.prior_knowledge.value == "basics" for t in turns)
+    assert {t.exercise_version for t in turns} == {_EXERCISE_FILE.version}
 
 
 def test_llm_mode_question_is_asked_once_per_stage(
@@ -240,6 +242,13 @@ def test_llm_mode_history_shows_no_verdict(
     assert ANSWER in text_of(at)  # die Antwort steht im Verlauf
     for label in ("Nicht erkannt", "Teilweise", "Erkannt"):
         assert label not in text_of(at)
+
+
+def test_code_shows_filename_from_exercise(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:
+    monkeypatch.setenv("MODE", "fixed")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    open_exercise(at)
+    assert _EXERCISE_FILE.scenario.filename in text_of(at)
 
 
 def test_logo_leads_back_to_overview(monkeypatch: pytest.MonkeyPatch, log_dir: Path) -> None:

@@ -148,8 +148,8 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', system-ui, sans-serif !important; co
   background: {NAVY}; border-bottom: 1px solid #3b4d66;
   font-family: 'JetBrains Mono', monospace; font-size: 13px;
 }}
-.mtg-code-bar i {{ width: 10px; height: 10px; border-radius: 5px; background: #3b4d66; display: inline-block; }}
-.mtg-code-bar .right {{ margin-left: auto; font-size: 12px; color: #c9d1dc; }}
+.mtg-code-bar i {{ width: 10px; height: 10px; border-radius: 5px; background: #3b4d66; display: inline-block; flex-shrink: 0; }}
+.mtg-code-bar .right {{ margin-left: auto; font-size: 12px; color: #c9d1dc; white-space: nowrap; }}
 .mtg-code-body {{
   padding: 14px 16px; overflow-x: auto;
   font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
@@ -546,7 +546,7 @@ def show_code(code: str, filename: str) -> None:
         f"""
         <div class="mtg-code">
           <div class="mtg-code-bar"><i></i><i></i><i></i>
-            <span style="margin-left:8px;color:#c9d1dc">{esc(filename)}</span>
+            <span style="margin-left:8px;color:#c9d1dc;min-width:0;overflow-wrap:anywhere">{esc(filename)}</span>
             <span class="right">von der KI erzeugt</span></div>
           <div class="mtg-code-body">{rows}</div>
         </div>
@@ -683,8 +683,7 @@ def show_scenario(exercise: Exercise) -> None:
         else:
             bubble = f'<div class="mtg-bubble"><span class="ai">KI</span>{esc(chat)}</div>'
         st.markdown(bubble + '<div style="height:18px"></div>', unsafe_allow_html=True)
-        code = exercise.scenario.code
-        show_code(code, "index.html" if code.lstrip().startswith("<") else "app.js")
+        show_code(exercise.scenario.code, exercise.scenario.filename)
 
 
 def show_step_badge(stage: int) -> None:

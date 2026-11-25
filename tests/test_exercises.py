@@ -247,7 +247,15 @@ def test_missing_section(write_exercise: Writer, valid_data: dict[str, Any], sec
     _assert_problem(_problems(path), path, section, "Pflichtfeld fehlt")
 
 
-@pytest.mark.parametrize(("section", "field"), [("scenario", "code"), ("close", "fix"), ("answer_key", "issue")])
+def test_filename_is_required(write_exercise: Writer, valid_data: dict[str, Any]) -> None:
+    del valid_data["scenario"]["filename"]
+    path = write_exercise(valid_data)
+    _assert_problem(_problems(path), path, "scenario.filename", "Pflichtfeld fehlt")
+
+
+@pytest.mark.parametrize(("section", "field"), [
+    ("scenario", "code"), ("scenario", "filename"), ("close", "fix"), ("answer_key", "issue"),
+])  # fmt: skip
 def test_empty_text_field(write_exercise: Writer, valid_data: dict[str, Any], section: str, field: str) -> None:
     valid_data[section][field] = " "
     path = write_exercise(valid_data)

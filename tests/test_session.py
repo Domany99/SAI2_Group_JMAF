@@ -44,8 +44,8 @@ class Scripted:
         return result(outcome, model=model, temperature=temperature)
 
 
-def verdict_json(verdict: str, evidence: str = "Antwort A") -> str:
-    return json.dumps({"verdict": verdict, "evidence": evidence, "misconception": None})
+def verdict_json(verdict: str, evidence: str = "Antwort A", misconception: str | None = None) -> str:
+    return json.dumps({"verdict": verdict, "evidence": evidence, "misconception": misconception})
 
 
 @pytest.fixture
@@ -128,6 +128,22 @@ def test_ask_question_passes_previous_answer(
     assert "Meine letzte Antwort" in seen[0]
 
 
+def test_every_logged_turn_carries_the_exercise_version(
+    monkeypatch: pytest.MonkeyPatch, ctx: session.SessionContext, valid_data: dict[str, Any], cfg: LLMConfig
+) -> None:
+    valid_data["version"] = 3
+    ex = Exercise.model_validate(valid_data)
+    monkeypatch.setattr(tutor, "chat", Scripted(LEAK, LEAK))  # tutor, tutor, hint
+    session.ask_question(ctx, ex, 1, {ex.id: ex}, config=cfg)
+    session.log_answer(ctx, ex, 1, ANSWER)
+    monkeypatch.setattr(grader, "chat", Scripted(verdict_json("partial")))
+    session.grade_answer(ctx, ex, start(), ANSWER, config=cfg)
+
+    turns = logged(ctx)
+    assert [t.role for t in turns] == ["tutor", "tutor", "hint", "student", "grader"]
+    assert {t.exercise_version for t in turns} == {3}
+
+
 # --- Antwort ----------------------------------------------------------------
 
 
@@ -173,6 +189,41 @@ def test_grade_answer_logs_grader_turn(
     assert (turn.role, turn.stage, turn.verdict, turn.text) == ("grader", 2, Verdict.RECOGNIZED, "Antwort A")
     assert (turn.model, turn.prompt_version, turn.temperature) == ("grader-m", "grader_v3", 0.0)  # Default seit 24.11.
     assert turn.error is None and turn.cache_hit is False and len(turn.prompt_hash or "") == 64
+
+
+@pytest.mark.parametrize(("returned", "logged_id"), [
+    ("nur-im-repo", "nur-im-repo"),  # bekannte id wird geloggt
+    ("gibt-es-nicht", None),  # unbekannte id verwirft core.grader, geloggt wird null
+    (None, None),
+])  # fmt: skip
+def test_grade_answer_logs_misconception(
+    monkeypatch: pytest.MonkeyPatch, ctx: session.SessionContext, valid_data: dict[str, Any], cfg: LLMConfig,
+    returned: str | None, logged_id: str | None,
+) -> None:  # fmt: skip
+    valid_data["misconceptions"] = [
+        {"id": "nur-im-repo", "belief": "Der Key steht nicht im Repo, also ist er sicher.", "reaction": "Wo landet er?"},
+    ]
+    ex = Exercise.model_validate(valid_data)
+    monkeypatch.setattr(grader, "chat", Scripted(verdict_json("partial", misconception=returned)))
+    session.grade_answer(ctx, ex, start(), ANSWER, config=cfg)
+
+    [turn] = logged(ctx)
+    assert turn.misconception == logged_id
+
+
+def test_quote_not_found_keeps_misconception(
+    monkeypatch: pytest.MonkeyPatch, ctx: session.SessionContext, valid_data: dict[str, Any], cfg: LLMConfig
+) -> None:
+    valid_data["misconceptions"] = [
+        {"id": "nur-im-repo", "belief": "Der Key steht nicht im Repo, also ist er sicher.", "reaction": "Wo landet er?"},
+    ]
+    ex = Exercise.model_validate(valid_data)
+    reply = verdict_json("recognized", evidence="steht so nicht in der Antwort", misconception="nur-im-repo")
+    monkeypatch.setattr(grader, "chat", Scripted(reply))
+    session.grade_answer(ctx, ex, start(), ANSWER, config=cfg)
+
+    [turn] = logged(ctx)
+    assert (turn.verdict, turn.error, turn.misconception) == (Verdict.PARTIAL, "quote_not_found", "nur-im-repo")
 
 
 def test_grade_answer_logs_fallback_error_code(

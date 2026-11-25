@@ -83,6 +83,7 @@ def log_answer(
     turn = Turn(
         session=ctx.session,
         exercise=exercise.id,
+        exercise_version=exercise.version,
         stage=stage,
         role="student",
         text=answer,
@@ -118,6 +119,7 @@ def grade_answer(
         Turn(
             session=ctx.session,
             exercise=exercise.id,
+            exercise_version=exercise.version,
             stage=state.stage,
             role="grader",
             text=result.output.evidence,
@@ -128,6 +130,7 @@ def grade_answer(
             prompt_hash=result.prompt_hash,
             cache_hit=result.cache_hit,
             error=result.error,
+            misconception=result.output.misconception,
             ts=turn_log.now(),
             prior_knowledge=ctx.prior_knowledge,
             hook=ctx.hook,

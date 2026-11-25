@@ -64,6 +64,7 @@ class GuardedQuestion:
 
     text: str
     exercise: str
+    exercise_version: int
     stage: int
     prior_knowledge: PriorKnowledge
     attempts: tuple[Attempt, ...]
@@ -89,6 +90,7 @@ class GuardedQuestion:
         common: dict[str, Any] = {
             "session": session,
             "exercise": self.exercise,
+            "exercise_version": self.exercise_version,
             "stage": self.stage,
             "prior_knowledge": self.prior_knowledge,
             "hook": hook,
@@ -144,6 +146,7 @@ def ask_guarded(
         return GuardedQuestion(
             text=text,
             exercise=exercise.id,
+            exercise_version=exercise.version,
             stage=stage,
             prior_knowledge=level,
             attempts=tuple(attempts),

@@ -17,7 +17,7 @@ _VALID: dict[str, Any] = {
     "version": 1,
     "order": 1,
     "decoy": False,
-    "scenario": {"requirement": "Auftrag", "ai_chat": "Chat", "code": "const x = 1;"},
+    "scenario": {"requirement": "Auftrag", "ai_chat": "Chat", "filename": "app.js", "code": "const x = 1;"},
     "answer_key": {
         "issue": "GEHEIMES-PROBLEM",
         "consequence": "GEHEIME-FOLGE",
