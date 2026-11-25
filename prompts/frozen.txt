@@ -1,3 +1,5 @@
 # Eingefrorene Prompt-Versionen: in einem Eval-Lauf verwendet, nie mehr bearbeiten.
 # Format pro Zeile: <sha256>  <dateiname>   (Hash mit core.prompts.prompt_hash, siehe README.md)
-# Noch leer: Es gab noch keinen Eval-Lauf.
+41af90b99fa3b7d54ebf69ea542a3247424e91c99361e84e2024e1c5825583ae  tutor_v2.md  # Nutzertests ab 25.11.2026
+8099d6e4d02f3dcf569744c326ffd427144ace9f1dcea7215a9cdf0b12172430  tutor_strict_v1.md  # Nutzertests ab 25.11.2026
+d39602787033e1b1916756a336f410dad1d5ad8952459c07eea3a1655de08769  grader_v3.md  # Nutzertests ab 25.11.2026

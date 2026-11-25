@@ -4,8 +4,9 @@ Repo for SAI2 Group Project
 Prototyp eines Security-Tutors: Er führt Studierende mit gestuften Fragen zu
 einer unsicheren Entscheidung in KI-generiertem Webcode, ohne sie zu nennen.
 Die Spezifikation steht in [development.md](development.md). Umgesetzt sind
-bisher Arbeitsschritt 1 (Übungsformat und zwei Übungsentwürfe) und
-Arbeitsschritt 2 (Stufen-Logik und Streamlit-UI mit fixen Fragen, ohne LLM).
+Arbeitsschritt 1 bis 3: Übungsformat und vier Übungen, Stufen-Logik und
+Streamlit-UI, Tutor und Grader über LLM mit Leak Guard und Logging. Statt
+der Evaluation aus Schritt 4 folgen Nutzertests (Entscheid "Evaluation").
 
 ## Setup
 
@@ -118,7 +119,8 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   zeigen auf eine bestimmte Stelle, schon beim ersten Versuch. Das würde die
   Stufenlogik und die Kennzahlen der Evaluation unterlaufen. Anzeige erst,
   wenn die Erkennung der ids geprüft ist. Dafür steht die id im grader-Turn
-  im Log (`misconception`), die Evaluation vergleicht sie mit den Labels.
+  im Log (`misconception`). Mit gelabelten Antworten liesse sie sich prüfen,
+  die Nutzertests sehen das nicht vor (Entscheid "Evaluation").
 - **Fix-Auswahl:** Optionales Feld `close.fix_choices`, eine Liste mit `text`,
   `verdict` (`correct`, `partial`, `wrong`) und `reason`. Wenn vorhanden,
   mindestens 2 Optionen und mindestens eine `correct`. Erscheint erst nach dem
@@ -274,7 +276,19 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Eingefrorene Prompts:** `prompts/frozen.txt` listet SHA-256 und
   Dateiname jeder Version, die in einem Eval-Lauf verwendet wurde. Ein Test
   schlägt fehl, wenn sich eine davon ändert. Der Hash ignoriert
-  Zeilenenden (git autocrlf unter Windows).
+  Zeilenenden (git autocrlf unter Windows). Eingefroren seit 25.11.2026:
+  `tutor_v2`, `tutor_strict_v1` (zweiter Versuch nach Guard-Treffer) und
+  `grader_v3`, die Defaults für die Nutzertests.
+- **Evaluation: Nutzertests statt Label-Datensatz (Entscheid 25.11.2026):**
+  Abweichend von `development.md` (Abschnitt "Evaluation") gibt es keine
+  unabhängig gelabelten Antworten, kein `eval/run_grid.py` und kein
+  `eval/metrics.py`. Grund: Aufwand im verbleibenden Zeitrahmen. Stattdessen
+  6 Nutzertests mit Personen aus der Zielgruppe (Modulvorgabe: mindestens 6
+  bis 8), mit den Übungen API-Key, Strapi und Decoy. XSS fehlt, weil sie für
+  viele zu schwer sein dürfte. Die Nutzertests gelten als Eval-Lauf im Sinn
+  der Regeln zu `frozen.txt` und `exercise_version`. Folge für den Bericht:
+  Genauigkeit des Graders, Erkennung der Fehlannahmen und Anpassung an die
+  Einstufung sind beobachtet, nicht gemessen.
 - **Dateiname über dem Code:** Pflichtfeld `scenario.filename` (Entscheid
   25.11.2026). Vorher riet die App aus dem ersten Zeichen des Codes
   `index.html` oder `app.js`, was bei allen vier Übungen falsch war. Der
