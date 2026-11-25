@@ -107,6 +107,7 @@ stages:
     forbidden: ["XSS", "Cross-Site", "onerror"]
 
 close:
+  # Getestet am 20.10.2026: Mit dem Fix erscheinen alle Testeingaben nur noch als Text.
   fix: >
     innerHTML durch textContent ersetzen und die Elemente einzeln bauen, dann
     behandelt der Browser den Suchbegriff immer als Text. In der Meldung:
@@ -114,8 +115,7 @@ close:
     `Keine Projekte gefunden für «${term}».`; list.replaceChildren(empty);
     Die Projektliste ebenso mit createElement und textContent bauen. Sie war
     kein direkter Angriffsweg, aber wer überall textContent nutzt, muss nicht
-    bei jeder Stelle neu überlegen. Getestet am 20.10.2026: Alle Testeingaben
-    erscheinen nur noch als Text.
+    bei jeder Stelle neu überlegen.
   pruefmuster: "Quelle und Senke: Woher kommen die Daten (URL, Formular, fremde API, localStorage)? Wo landen sie (innerHTML, outerHTML, insertAdjacentHTML, document.write)? Fremde Quelle plus HTML-Senke heisst: auf textContent umstellen."
   # Zweite Frage: deklariert den nachgebauten Code und nennt den Befund der
   # KI-Läufe 5 bis 9 (Aufgabe-3-Dokument), damit die Frage ohne Dialog trägt.

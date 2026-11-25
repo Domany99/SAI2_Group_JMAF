@@ -46,7 +46,8 @@ def _not_blank(value: str) -> str:
 NonEmptyStr = Annotated[str, AfterValidator(_not_blank)]
 ExerciseId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 # Gleiches Format wie die Übungs-id. Der Grader gibt diese id als
-# "misconception" zurück, damit der Code die passende Reaktion findet.
+# "misconception" zurück. Die Reaktion wird bewusst nicht angezeigt
+# (README, Entscheid "Fehlannahmen").
 MisconceptionId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 
 

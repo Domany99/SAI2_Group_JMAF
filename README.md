@@ -106,9 +106,16 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **Stufe 0:** Optionales Feld `hook` (Text des echten Vorfalls) auf oberster
   Ebene. Es wird nicht an den Tutor gegeben.
 - **Fehlannahmen:** Optionales Feld `misconceptions` auf oberster Ebene, eine
-  Liste mit `id`, `belief` und `reaction`. Der Grader gibt im Feld
-  `misconception` die `id` zurück, der Code wählt damit die vorbereitete
-  Reaktion. Die `id` ist pro Übung eindeutig. Nicht im Tutor-Kontext.
+  Liste mit `id`, `belief` und `reaction`. Die `id` ist pro Übung eindeutig.
+  Der Grader bekommt `id` und `belief` und gibt im Feld `misconception` die
+  passende `id` zurück (unbekannte ids verwirft `core/grader.py`). Nicht im
+  Tutor-Kontext. Die `reaction` ist vorbereitet, wird aber bewusst nicht
+  angezeigt (Entscheid 25.11.2026): Ob der Grader die richtige id wählt, ist
+  nicht geprüft (`scripts/try_grader.py` prüft nur das Urteil), eine falsche
+  Reaktion verwirrt mehr als eine allgemeine Tutor-Frage, und die Reaktionen
+  zeigen auf eine bestimmte Stelle, schon beim ersten Versuch. Das würde die
+  Stufenlogik und die Kennzahlen der Evaluation unterlaufen. Anzeige erst,
+  wenn die Erkennung der ids geprüft ist.
 - **Fix-Auswahl:** Optionales Feld `close.fix_choices`, eine Liste mit `text`,
   `verdict` (`correct`, `partial`, `wrong`) und `reason`. Wenn vorhanden,
   mindestens 2 Optionen und mindestens eine `correct`. Erscheint erst nach dem
@@ -267,6 +274,10 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Zeilenenden (git autocrlf unter Windows).
 - **Prompt-Sprache:** Deutsch, wie die Übungen und Hints, damit
   Fachpersonen die Prompts direkt prüfen können.
+- **UI-Sprache:** Deutsch, mit ss statt ß, obwohl das Modul auf Englisch
+  läuft. So sind UI, Übungen und Prompts in einer Sprache. Zitate aus App
+  und Prompts werden für das Paper übersetzt. Mit der Modulleitung noch zu
+  bestätigen.
 - **Tutor-Config:** `TUTOR_TEMPERATURE` (Default 0.7 wie im Log-Beispiel)
   und `TUTOR_PROMPT_VERSION` (Default 2 seit 23.11.2026, vorher 1) in `core/config.py`. `tutor.ask()`
   kann Modell, Temperatur und Prompt-Version pro Aufruf überschreiben, für

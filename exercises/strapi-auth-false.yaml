@@ -85,13 +85,13 @@ stages:
     forbidden: []
 
 close:
+  # Getestet am 17.11.2026: Mit dem Fix ergeben PUT und DELETE ohne Login 405 statt 200.
   fix: >
     auth false entfernen und nur die nötigen Routen anlegen:
     createCoreRouter('api::comment.comment', { only: ['find', 'findOne', 'create'] }).
     Im Admin unter Roles, Public bei Comment nur create, find und findOne
     freigeben, sichtbar und widerrufbar. Gegen Spam die Textlänge im Schema
-    begrenzen (maxLength) und Anfragen per Middleware begrenzen. Getestet am
-    17.11.2026: PUT und DELETE ohne Login ergeben 405 statt 200.
+    begrenzen (maxLength) und Anfragen per Middleware begrenzen.
   pruefmuster: "Wer darf was, und wo wird es geprüft? Für jede Aktion: alle, Eingeloggte oder nur die Besitzerin? Und steht die Regel dort, wo man sie sieht, in der Rolle im Admin, oder versteckt im Code?"
   reflection:
     personal: "Stell dir vor, jemand ändert deinen Kommentar unter dem Projekt eurer Gruppe in etwas Peinliches, und niemand kann nachvollziehen, wer es war."
