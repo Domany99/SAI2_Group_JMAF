@@ -47,7 +47,7 @@ The core guarantee is that **the tutor LLM can never reveal the answer**. Severa
 - `core/session.py` is the LLM-mode flow without UI: `ask_question` (leak guard, logs tutor/hint turns), `log_answer` (student turn, once per answer), `grade_answer` (grader + `on_verdict`, logs the grader turn; raises `LLMError` with nothing logged so the UI can retry). `SessionContext` carries session id, hook arm, prior knowledge and log dir.
 - `app/main.py` is the Streamlit UI (design "Mind the Gap", theme in `.streamlit/config.toml`, CSS inline). It loads `.env` at start (so `MODE`/`HOOK` may live there). `MODE=llm` (default): question per stage from `session.ask_question` (generated once per stage, cached in session state), answers graded by `session.grade_answer`, spinners while waiting, a retry button when the grader fails; a missing config shows an error pointing to `MODE=fixed`. `MODE=fixed`: expert hints as questions and test-lead buttons, no LLM, no logging. The stage logic is the same in both. `tests/test_app.py` drives it with `streamlit.testing.v1.AppTest`; it reads `core.logging.LOG_DIR` at call time so tests can redirect logs.
 
-Not yet in the UI: misconception reactions and `fix_choices`. `eval/` (step 4) is still empty.
+`fix_choices` are shown in the fix phase. Misconception reactions are prepared in the exercises but deliberately not shown (README, decision "Fehlannahmen"). `eval/` (step 4) is still empty.
 
 ## Exercises (`exercises/*.yaml`)
 

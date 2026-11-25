@@ -103,11 +103,11 @@ answer_key:
     API schickt. Eine geprüfte Bibliothek wie DOMPurify wäre bei künftigen
     Änderungen robuster (OWASP-Empfehlung), eine Lücke in diesem Code ist das
     aber nicht.
+  # Getestet am 17.11.2026 (3 Angriffe über die API) und am 22.11.2026 in
+  # Chromium mit 30 Eingaben, darunter Mutation-XSS-Muster: keine Ausführung.
   consequence: >
     Kein fremdes Skript wird ausgeführt. Fremde können Text, Fettschrift und
-    Links auf http(s)-Seiten setzen, das ist gewollt. Getestet am 17.11.2026
-    (3 Angriffe über die API) und am 22.11.2026 in Chromium mit 30 Eingaben,
-    darunter Mutation-XSS-Muster: keine Ausführung.
+    Links auf http(s)-Seiten setzen, das ist gewollt.
   accepted:
     - "die Kommentare werden vor v-html bereinigt, nur ein paar Tags bleiben und alle Attribute werden entfernt, also kein Skript"
     - "onerror oder onclick kommen nicht durch, weil sanitizeHtml alle Attribute löscht, und Links nur mit http oder https bleiben"
