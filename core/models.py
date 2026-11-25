@@ -279,6 +279,7 @@ class Turn(_Model):
     - `verdict`: Pflicht bei grader, sonst null. `error` nur bei grader und
       nur zusammen mit partial.
     - `guard_hit`: nur bei tutor.
+    - `misconception`: nur bei grader, sonst null.
     """
 
     session: SessionId
@@ -308,6 +309,9 @@ class Turn(_Model):
     # Nur bei hint: warum der Expert:innen-Hint statt einer Tutor-Frage kam.
     fallback: Fallback | None = None
     error: GraderError | None = None
+    # Nur bei grader: id der erkannten Fehlannahme, null wenn keine erkannt
+    # oder die id in der Übung unbekannt war (core.grader verwirft sie).
+    misconception: MisconceptionId | None = None
 
     @field_validator("stage")
     @classmethod
@@ -360,6 +364,9 @@ class Turn(_Model):
                 violations.append(Violation("error", "nur bei role=grader erlaubt"))
             elif self.verdict is not Verdict.PARTIAL:
                 violations.append(Violation("error", "bei einem Fehler ist das Urteil immer partial"))
+
+        if self.misconception is not None and self.role != "grader":
+            violations.append(Violation("misconception", "nur bei role=grader erlaubt"))
 
         if violations:
             raise RuleViolations(violations)

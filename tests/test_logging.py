@@ -23,6 +23,7 @@ EXPECTED_KEYS = [
     "text", "guard_hit", "verdict", "ts",
     # Ergänzungen (Entscheide im README)
     "prior_knowledge", "hook", "exercise_version", "prompt_hash", "n_examples", "attempt", "cache_hit", "fallback", "error",
+    "misconception",
 ]  # fmt: skip
 HASH = "a" * 64
 
@@ -118,12 +119,30 @@ def test_line_has_spec_fields_in_order(tmp_path: Path) -> None:
         "cache_hit": False,
         "fallback": None,
         "error": None,
+        "misconception": None,
     }
 
 
 def test_grader_turn_logs_verdict_as_string(tmp_path: Path) -> None:
     path = turn_log.write_turn(grader_turn(), tmp_path)
     assert json.loads(path.read_text(encoding="utf-8"))["verdict"] == "partial"
+
+
+def test_grader_turn_logs_misconception_id(tmp_path: Path) -> None:
+    path = turn_log.write_turn(grader_turn(misconception="base64-versteckt"), tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["misconception"] == "base64-versteckt"
+    assert turn_log.read_turns(path)[0].misconception == "base64-versteckt"
+
+
+@pytest.mark.parametrize("factory", [tutor_turn, student_turn])
+def test_misconception_only_on_grader(factory: Any) -> None:
+    with pytest.raises(ValidationError, match="misconception: nur bei role=grader"):
+        factory(misconception="base64-versteckt")
+
+
+def test_misconception_must_be_an_id() -> None:
+    with pytest.raises(ValidationError, match="misconception"):
+        grader_turn(misconception="Base64 versteckt den Key")
 
 
 def test_umlauts_and_newlines_stay_on_one_line(tmp_path: Path) -> None:

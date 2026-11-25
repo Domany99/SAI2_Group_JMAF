@@ -130,6 +130,7 @@ def grade_answer(
             prompt_hash=result.prompt_hash,
             cache_hit=result.cache_hit,
             error=result.error,
+            misconception=result.output.misconception,
             ts=turn_log.now(),
             prior_knowledge=ctx.prior_knowledge,
             hook=ctx.hook,

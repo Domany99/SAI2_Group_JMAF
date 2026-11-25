@@ -117,7 +117,8 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Reaktion verwirrt mehr als eine allgemeine Tutor-Frage, und die Reaktionen
   zeigen auf eine bestimmte Stelle, schon beim ersten Versuch. Das würde die
   Stufenlogik und die Kennzahlen der Evaluation unterlaufen. Anzeige erst,
-  wenn die Erkennung der ids geprüft ist.
+  wenn die Erkennung der ids geprüft ist. Dafür steht die id im grader-Turn
+  im Log (`misconception`), die Evaluation vergleicht sie mit den Labels.
 - **Fix-Auswahl:** Optionales Feld `close.fix_choices`, eine Liste mit `text`,
   `verdict` (`correct`, `partial`, `wrong`) und `reason`. Wenn vorhanden,
   mindestens 2 Optionen und mindestens eine `correct`. Erscheint erst nach dem
@@ -318,6 +319,11 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   in Teile. `partial` und `not` werden nicht geprüft.
 - **Fehlannahmen-ids:** Gibt der Grader eine id zurück, die es in der Übung
   nicht gibt, wird sie verworfen (Warnung), das Urteil bleibt.
+- **`misconception` im Log:** Optional, nur beim `grader`-Turn: die id, die
+  der Grader zurückgibt, nach der Prüfung oben (Entscheid 25.11.2026).
+  `null` heisst: keine erkannt, unbekannte id verworfen oder keine
+  auswertbare Modellantwort (Fallback-`partial`). Bei `quote_not_found`
+  bleibt die id erhalten, wie das Zitat.
 - **Code-Fences:** JSON in ```` ```json ```` wird akzeptiert, weil der
   Proxy beim JSON-Fallback normalen Text liefert.
 - **Proxy-Ausfall beim Grader:** `grade()` wirft den `LLMError` weiter. Ohne
@@ -367,7 +373,7 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   lassen sich mit `read_turns` nicht mehr lesen, das betrifft nur Testläufe.
 - **Reihenfolge im Log:** zuerst die Felder der Spezifikation, danach die
   Ergänzungen `prior_knowledge`, `hook`, `exercise_version`, `prompt_hash`,
-  `n_examples`, `attempt`, `cache_hit`, `fallback`, `error`.
+  `n_examples`, `attempt`, `cache_hit`, `fallback`, `error`, `misconception`.
 - **Leak-Guard-Ablauf in `core/leak_guard.py`:** nicht in `core/guard.py`,
   weil `core/models.py` von dort importiert und der Ablauf `core/tutor.py`
   braucht (Import-Kreis). `guard.py` behält `normalize()` und
