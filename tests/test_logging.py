@@ -22,7 +22,7 @@ EXPECTED_KEYS = [
     "session", "exercise", "stage", "role", "prompt_version", "model", "temperature",
     "text", "guard_hit", "verdict", "ts",
     # Ergänzungen (Entscheide im README)
-    "prior_knowledge", "hook", "prompt_hash", "n_examples", "attempt", "cache_hit", "fallback", "error",
+    "prior_knowledge", "hook", "exercise_version", "prompt_hash", "n_examples", "attempt", "cache_hit", "fallback", "error",
 ]  # fmt: skip
 HASH = "a" * 64
 
@@ -40,6 +40,7 @@ def tutor_turn(**overrides: Any) -> Turn:
         "ts": TS,
         "prior_knowledge": PriorKnowledge.BASICS,
         "hook": "none",
+        "exercise_version": 2,
         "prompt_hash": HASH,
         "n_examples": 2,
         "attempt": 1,
@@ -110,6 +111,7 @@ def test_line_has_spec_fields_in_order(tmp_path: Path) -> None:
         "ts": "2026-11-20T10:14:03+01:00",
         "prior_knowledge": "basics",
         "hook": "none",
+        "exercise_version": 2,
         "prompt_hash": HASH,
         "n_examples": 2,
         "attempt": 1,
@@ -270,6 +272,19 @@ def test_unknown_field_is_rejected() -> None:
 def test_stage_outside_1_to_3_is_rejected(stage: int) -> None:
     with pytest.raises(ValidationError, match="Stufe muss 1, 2 oder 3 sein"):
         tutor_turn(stage=stage)
+
+
+@pytest.mark.parametrize("version", [0, -1])
+def test_exercise_version_below_1_is_rejected(version: int) -> None:
+    with pytest.raises(ValidationError, match="exercise_version"):
+        tutor_turn(exercise_version=version)
+
+
+def test_exercise_version_is_required() -> None:
+    turn = tutor_turn().model_dump()
+    del turn["exercise_version"]
+    with pytest.raises(ValidationError, match="exercise_version"):
+        Turn(**turn)
 
 
 def test_unknown_role_is_rejected() -> None:

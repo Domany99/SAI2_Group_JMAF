@@ -79,6 +79,9 @@ class _Model(BaseModel):
 class Scenario(_Model):
     requirement: NonEmptyStr
     ai_chat: NonEmptyStr
+    # Steht in der App über dem Code. Bei Ausschnitten aus mehreren Dateien
+    # alle Dateien nennen, in der Reihenfolge im Code.
+    filename: NonEmptyStr
     code: NonEmptyStr
 
 
@@ -291,6 +294,9 @@ class Turn(_Model):
     ts: AwareDatetime  # ISO 8601 mit Zeitzone; naive Zeitstempel sind ein Fehler
     prior_knowledge: PriorKnowledge
     hook: Hook
+    # `version` der Übungsdatei zum Zeitpunkt des Turns. Trennt Logs vor und
+    # nach einer inhaltlichen Änderung der Übung, ohne Umweg übers Datum.
+    exercise_version: int = Field(ge=1)
     # SHA-256 des fertig eingesetzten System-Prompts (inkl. Few-Shot). Die
     # Version allein reicht nicht: Die Beispiele ändern sich mit den Übungen.
     prompt_hash: PromptHash | None = None

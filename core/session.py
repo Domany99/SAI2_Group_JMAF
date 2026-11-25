@@ -83,6 +83,7 @@ def log_answer(
     turn = Turn(
         session=ctx.session,
         exercise=exercise.id,
+        exercise_version=exercise.version,
         stage=stage,
         role="student",
         text=answer,
@@ -118,6 +119,7 @@ def grade_answer(
         Turn(
             session=ctx.session,
             exercise=exercise.id,
+            exercise_version=exercise.version,
             stage=state.stage,
             role="grader",
             text=result.output.evidence,

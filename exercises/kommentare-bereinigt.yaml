@@ -25,6 +25,7 @@ scenario:
     Fettgedruckten Text und Links sind möglich
     Kommentare werden beim Speichern automatisch aktualisiert
     HTML wird bereinigt und unsichere Inhalte werden entfernt
+  filename: "CommentForm.vue (Ausschnitt)"
   # Wörtlich aus Lauf 8, gekürzt auf Bereinigung, Laden und Anzeige. Das
   # Formular bereinigt zusätzlich vor dem Speichern (nicht gezeigt). Rund 55
   # Zeilen, entschieden am 22.11.: Die Funktion muss ganz beurteilt werden.

@@ -21,6 +21,7 @@ scenario:
 
     (Für diese Übung nachgebaut, nach dem Muster aus einem echten
     Studierendenprojekt.)
+  filename: "projects.js"
   # Wörtlich aus dem Aufgabe-3-Dokument, getestet in Chromium am 20.10.2026.
   # Länger als 20 Zeilen: Das Suchfeld und sein Listener werden für die
   # Fehlannahme "suchfeld-pruefen" gebraucht, gekürzter Code wäre ungetestet.

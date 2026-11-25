@@ -22,6 +22,7 @@ scenario:
     create/find/findOne/update/delete auf auth: false gesetzt.
     backend/config/middlewares.js, CORS für http://localhost:5173 und
     http://127.0.0.1:5173 erlaubt.
+  filename: "backend/src/api/comment/routes/comment.js"
   # Wörtlich aus dem Lauf, nur die Route. Die CORS-Änderung ist nicht nötig für die Aufgabe.
   code: |
     'use strict';

@@ -88,6 +88,8 @@ Regeln, die beim Laden geprüft werden:
   wird nach der Normalisierung des Leak Guards (Kleinschreibung, ohne
   Satzzeichen, ä/ö/ü = ae/oe/ue), auf ganzen Wörtern.
 - `answer_key.accepted` hat mindestens 2 Einträge.
+- `scenario.filename` ist gesetzt. Es steht in der App über dem Code. Bei
+  Ausschnitten aus mehreren Dateien alle nennen.
 - Die `id` entspricht dem Dateinamen und ist eindeutig.
 - Unbekannte Felder (z. B. Tippfehler wie `forbiden`) sind Fehler.
 
@@ -272,6 +274,10 @@ finalen Hints kommen von der Fachperson (Gold Standard).
   Dateiname jeder Version, die in einem Eval-Lauf verwendet wurde. Ein Test
   schlägt fehl, wenn sich eine davon ändert. Der Hash ignoriert
   Zeilenenden (git autocrlf unter Windows).
+- **Dateiname über dem Code:** Pflichtfeld `scenario.filename` (Entscheid
+  25.11.2026). Vorher riet die App aus dem ersten Zeichen des Codes
+  `index.html` oder `app.js`, was bei allen vier Übungen falsch war. Der
+  Name geht weder an Tutor noch an Grader.
 - **Prompt-Sprache:** Deutsch, wie die Übungen und Hints, damit
   Fachpersonen die Prompts direkt prüfen können.
 - **UI-Sprache:** Deutsch, mit ss statt ß, obwohl das Modul auf Englisch
@@ -353,9 +359,15 @@ finalen Hints kommen von der Fachperson (Gold Standard).
 - **`n_examples`:** Zahl der Few-Shot-Beispiele im Tutor-Prompt, Pflicht bei
   `tutor`. Bei 0 setzt `tutor.ask()` eine Warnung: Die Stufe läuft dann
   Zero-Shot und ist nicht mit den anderen vergleichbar.
+- **`exercise_version` im Log:** Pflicht in jedem Turn, die `version` der
+  Übungsdatei. So lassen sich Logs vor und nach einer Änderung der Übung
+  trennen, ohne Umweg übers Datum (Entscheid 25.11.2026). Daraus folgt: Ab
+  dem ersten Eval-Lauf erhöht jede Änderung an Text, den Studierende sehen,
+  oder am Lösungsschlüssel die `version`. Logs von vor dieser Änderung
+  lassen sich mit `read_turns` nicht mehr lesen, das betrifft nur Testläufe.
 - **Reihenfolge im Log:** zuerst die Felder der Spezifikation, danach die
-  Ergänzungen `prior_knowledge`, `hook`, `prompt_hash`, `n_examples`,
-  `attempt`, `cache_hit`, `fallback`, `error`.
+  Ergänzungen `prior_knowledge`, `hook`, `exercise_version`, `prompt_hash`,
+  `n_examples`, `attempt`, `cache_hit`, `fallback`, `error`.
 - **Leak-Guard-Ablauf in `core/leak_guard.py`:** nicht in `core/guard.py`,
   weil `core/models.py` von dort importiert und der Ablauf `core/tutor.py`
   braucht (Import-Kreis). `guard.py` behält `normalize()` und

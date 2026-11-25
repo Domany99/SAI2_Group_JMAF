@@ -128,6 +128,22 @@ def test_ask_question_passes_previous_answer(
     assert "Meine letzte Antwort" in seen[0]
 
 
+def test_every_logged_turn_carries_the_exercise_version(
+    monkeypatch: pytest.MonkeyPatch, ctx: session.SessionContext, valid_data: dict[str, Any], cfg: LLMConfig
+) -> None:
+    valid_data["version"] = 3
+    ex = Exercise.model_validate(valid_data)
+    monkeypatch.setattr(tutor, "chat", Scripted(LEAK, LEAK))  # tutor, tutor, hint
+    session.ask_question(ctx, ex, 1, {ex.id: ex}, config=cfg)
+    session.log_answer(ctx, ex, 1, ANSWER)
+    monkeypatch.setattr(grader, "chat", Scripted(verdict_json("partial")))
+    session.grade_answer(ctx, ex, start(), ANSWER, config=cfg)
+
+    turns = logged(ctx)
+    assert [t.role for t in turns] == ["tutor", "tutor", "hint", "student", "grader"]
+    assert {t.exercise_version for t in turns} == {3}
+
+
 # --- Antwort ----------------------------------------------------------------
 
 

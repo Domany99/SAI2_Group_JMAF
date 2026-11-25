@@ -31,6 +31,7 @@ scenario:
 
     KI (gekürzt): [...] Danach deployed GitHub den Key nie in den
     Source-Code, nur in den Build-Output. Das ist die saubere Lösung.
+  filename: "pages.yml · .gitignore · index.html · script.js"
   # Workflow wörtlich aus dem echten Projekt, script.js auf die relevanten Zeilen
   # gekürzt. Länger als 20 Zeilen, entschieden am 20.11. wie bei xss-projektsuche.
   code: |
